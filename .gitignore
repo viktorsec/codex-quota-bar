@@ -23,3 +23,13 @@ xcuserdata/
 .env
 .env.*
 !.env.example
+
+# Authentication exports and private signing material
+auth.json
+*.p12
+*.pfx
+*.key
+
+# Pinned helper downloads are prepared locally, not committed.
+/Vendor/Codex/arm64/
+/Vendor/Codex/x86_64/
