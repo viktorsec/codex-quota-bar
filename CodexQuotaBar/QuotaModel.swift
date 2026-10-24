@@ -19,6 +19,7 @@ final class QuotaModel {
     private(set) var connection: ConnectionState = .disconnected
     private(set) var authentication: AuthenticationState = .signedOut
     private(set) var windows: [QuotaWindow] = []
+    private(set) var resetCredits: ResetCredits?
     private(set) var updatedAt: Date?
     private(set) var errorMessage: String?
     // Stable image identity avoids repeatedly invalidating MenuBarExtra layout.
@@ -195,6 +196,7 @@ final class QuotaModel {
         let quota = try await session.request("account/rateLimits/read")
         try Task.checkCancellation()
         windows = QuotaWindow.parse(quota)
+        resetCredits = ResetCredits.parse(quota)
         updatedAt = .now
         updateMenuBarImage()
     }
@@ -229,6 +231,11 @@ final class QuotaModel {
         case "account/rateLimits/updated":
             guard isSignedIn else { return }
             windows = QuotaWindow.parse(params)
+            // Some notifications update only the quota windows. Keep the last
+            // reset summary unless a replacement (including null) is supplied.
+            if params.keys.contains("rateLimitResetCredits") {
+                resetCredits = ResetCredits.parse(params)
+            }
             updatedAt = .now
             updateMenuBarImage()
         case "account/updated":
@@ -248,6 +255,7 @@ final class QuotaModel {
     private func clearAccount() {
         authentication = .signedOut
         windows = []
+        resetCredits = nil
         updatedAt = nil
         updateMenuBarImage()
     }

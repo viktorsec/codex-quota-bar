@@ -26,6 +26,27 @@ struct ContentView: View {
                     Text("Resets \(reset.formatted(date: .abbreviated, time: .shortened))")
                 }
             }
+            Divider()
+            if let resets = model.resetCredits {
+                if resets.availableCount == 0 {
+                    Text("No resets left")
+                } else {
+                    Text(resets.availableCount == 1 ? "1 reset available" : "\(resets.availableCount) resets available")
+                    ForEach(resets.credits) { credit in
+                        if let expiration = credit.expiresAt {
+                            Text("Expires \(expiration.formatted(date: .abbreviated, time: .shortened))")
+                        } else {
+                            Text("Expiration not provided")
+                        }
+                    }
+                    if resets.credits.count < resets.availableCount {
+                        Text("Some expiration details are unavailable")
+                    }
+                }
+            } else {
+                Text("Reset availability unavailable")
+            }
+            Divider()
             if let updated = model.updatedAt {
                 Text("Updated \(updated.formatted(date: .omitted, time: .shortened))")
             }
