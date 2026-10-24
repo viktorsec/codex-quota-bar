@@ -44,24 +44,48 @@ struct QuotaWindow: Identifiable {
 @Observable
 @MainActor
 final class QuotaModel {
-    private(set) var isConnecting = false
-    private(set) var isConnected = false
-    private(set) var isSignedIn = false
-    private(set) var isRefreshing = false
-    private(set) var isSigningIn = false
-    private(set) var email: String?
+    enum ConnectionState { case disconnected, connecting, connected }
+    enum AuthenticationState {
+        case signedOut
+        case signingIn(LoginAttempt)
+        case signedIn(email: String?)
+    }
+    struct LoginAttempt {
+        let id: UUID
+        var serverID: String?
+        var url: URL?
+    }
+
+    private(set) var connection: ConnectionState = .disconnected
+    private(set) var authentication: AuthenticationState = .signedOut
     private(set) var windows: [QuotaWindow] = []
     private(set) var updatedAt: Date?
     private(set) var errorMessage: String?
+    private var accountOperationID: UUID?
 
-    @ObservationIgnored private let client = CodexClient()
-    @ObservationIgnored private var operation: Task<Void, Never>?
+    @ObservationIgnored private let session = AuthenticationSession()
+    @ObservationIgnored private var connectionTask: Task<Void, Never>?
+    @ObservationIgnored private var loginTask: Task<Void, Never>?
+    @ObservationIgnored private var accountTask: Task<Void, Never>?
     @ObservationIgnored private var polling: Task<Void, Never>?
     @ObservationIgnored private var loginTimeout: Task<Void, Never>?
-    @ObservationIgnored private var loginAttempt: UUID?
-    @ObservationIgnored private var loginID: String?
-    @ObservationIgnored private var loginURL: URL?
 
+    var isConnecting: Bool { connection == .connecting }
+    var isConnected: Bool { connection == .connected }
+    var isRefreshing: Bool { accountOperationID != nil }
+    var isSignedIn: Bool {
+        if case .signedIn = authentication { return true }
+        return false
+    }
+    var isSigningIn: Bool { pendingLogin != nil }
+    var email: String? {
+        if case .signedIn(let email) = authentication { return email }
+        return nil
+    }
+    private var pendingLogin: LoginAttempt? {
+        if case .signingIn(let attempt) = authentication { return attempt }
+        return nil
+    }
     var menuBarTitle: String {
         guard isConnected else { return "Codex" }
         if let window = windows.first { return "\(window.remainingPercent)%" }
@@ -69,67 +93,63 @@ final class QuotaModel {
     }
 
     init() {
-        client.onNotification = { [weak self] method, params in
+        session.onNotification = { [weak self] method, params in
             self?.receive(method, params: params)
         }
-        client.onDisconnect = { [weak self] in
-            guard let self else { return }
-            self.polling?.cancel()
-            self.isConnected = false
-            self.isSigningIn = false
-            self.loginTimeout?.cancel()
-            self.loginID = nil
-            self.loginURL = nil
-            self.errorMessage = "The Codex helper stopped. Choose Reconnect to try again."
-        }
+        session.onDisconnect = { [weak self] in self?.disconnected() }
     }
 
     func connect() {
         guard !isConnecting else { return }
-        operation?.cancel()
-        polling?.cancel()
-        isConnecting = true
+        cancelPendingWork()
+        clearLogin()
+        clearAccount()
+        connection = .connecting
         errorMessage = nil
-        operation = Task {
-            defer { isConnecting = false }
+        connectionTask = Task {
             do {
-                await client.stop()
-                try await client.start()
-                isConnected = true
-                try await readAccount()
-                if isSignedIn { try await readQuota() }
+                await session.stop()
+                try await session.start()
+                try Task.checkCancellation()
+                errorMessage = session.credentialNotice
+                try await readAccountAndQuota()
+                try Task.checkCancellation()
+                connection = .connected
                 startPolling()
             } catch is CancellationError {
+                if connection == .connecting { connection = .disconnected }
             } catch {
+                guard !Task.isCancelled else { return }
+                connection = session.isConnected ? .connected : .disconnected
                 errorMessage = error.localizedDescription
-                isConnected = client.isConnected
             }
         }
     }
 
     func signIn() {
-        guard isConnected, !isConnecting, !isSignedIn, !isSigningIn, !isRefreshing else { return }
-        let attempt = UUID()
-        loginAttempt = attempt
-        isSigningIn = true
+        guard isConnected, !isSignedIn, !isSigningIn, !isRefreshing else { return }
+        let attemptID = UUID()
+        authentication = .signingIn(LoginAttempt(id: attemptID))
         errorMessage = nil
-        operation = Task {
+        loginTask = Task {
             do {
-                let response = try await client.request("account/login/start", params: ["type": "chatgpt"])
-                guard loginAttempt == attempt else { return }
-                // Keep the ID even if URL validation fails, so the helper's
-                // callback listener can still be cancelled.
+                let response = try await session.request("account/login/start", params: ["type": "chatgpt"])
+                guard var attempt = pendingLogin, attempt.id == attemptID else { return }
+                // Retain the server ID before validating the URL so a failed
+                // browser launch can still cancel the callback listener.
                 guard let id = response["loginId"] as? String else {
                     throw CodexClient.ClientError.invalidResponse
                 }
-                loginID = id
+                attempt.serverID = id
+                authentication = .signingIn(attempt)
                 guard let address = response["authUrl"] as? String,
                       let url = URL(string: address), url.scheme == "https",
                       let host = url.host,
                       host == "auth.openai.com" || host == "chatgpt.com" || host == "auth0.openai.com" else {
                     throw CodexClient.ClientError.invalidResponse
                 }
-                loginURL = url
+                attempt.url = url
+                authentication = .signingIn(attempt)
                 guard NSWorkspace.shared.open(url) else {
                     throw NSError(domain: "CodexQuotaBar", code: 1, userInfo: [
                         NSLocalizedDescriptionKey: "Could not open your browser. Cancel and try signing in again."
@@ -140,77 +160,78 @@ final class QuotaModel {
                     self.cancelSignIn()
                 }
             } catch {
-                // A cancelled attempt must not clear a newer attempt's state.
-                guard loginAttempt == attempt else { return }
-                let id = loginID
+                guard let attempt = pendingLogin, attempt.id == attemptID else { return }
                 clearLogin()
                 errorMessage = error.localizedDescription
-                if let id { _ = try? await client.request("account/login/cancel", params: ["loginId": id]) }
+                if let id = attempt.serverID {
+                    _ = try? await session.request("account/login/cancel", params: ["loginId": id])
+                }
             }
         }
     }
 
     func reopenSignIn() {
-        if let loginURL { NSWorkspace.shared.open(loginURL) }
+        if let url = pendingLogin?.url { NSWorkspace.shared.open(url) }
     }
 
     func cancelSignIn() {
-        let id = loginID
+        guard let attempt = pendingLogin else { return }
         clearLogin()
-        operation?.cancel()
-        // If login/start hasn't returned its ID yet, restarting the helper
-        // also closes the callback listener for that pending login attempt.
-        guard let id else {
+        loginTask?.cancel()
+        // Until login/start returns its ID, stopping the helper is the only way
+        // to guarantee that its pending callback listener has been cancelled.
+        guard let id = attempt.serverID else {
             connect()
             return
         }
-        operation = Task {
-            _ = try? await client.request("account/login/cancel", params: ["loginId": id])
+        loginTask = Task {
+            _ = try? await session.request("account/login/cancel", params: ["loginId": id])
         }
     }
 
     func refresh() {
-        guard isConnected, isSignedIn, !isRefreshing, !isSigningIn else { return }
-        isRefreshing = true
-        errorMessage = nil
-        operation = Task {
-            defer { isRefreshing = false }
-            do {
-                try await readAccount()
-                if isSignedIn { try await readQuota() }
-            } catch is CancellationError {
-            } catch { errorMessage = error.localizedDescription }
-        }
+        guard isConnected, isSignedIn, !isSigningIn else { return }
+        performAccountOperation { try await self.readAccountAndQuota() }
     }
 
     func signOut() {
-        guard isConnected, !isRefreshing, !isSigningIn else { return }
-        isRefreshing = true
-        errorMessage = nil
-        operation = Task {
-            defer { isRefreshing = false }
-            do {
-                _ = try await client.request("account/logout")
-                clearAccount()
-            } catch { errorMessage = error.localizedDescription }
+        guard isConnected, !isSigningIn else { return }
+        performAccountOperation {
+            _ = try await self.session.request("account/logout")
+            try Task.checkCancellation()
+            self.clearAccount()
         }
     }
 
-    private func readAccount() async throws {
-        let result = try await client.request("account/read", params: ["refreshToken": false])
+    private func performAccountOperation(_ action: @escaping @MainActor () async throws -> Void) {
+        guard !isRefreshing else { return }
+        let id = UUID()
+        accountOperationID = id
+        errorMessage = nil
+        accountTask = Task {
+            defer {
+                // A cancelled task must not clear a newer operation's state.
+                if accountOperationID == id { accountOperationID = nil }
+            }
+            do { try await action() }
+            catch is CancellationError {
+            } catch {
+                if accountOperationID == id { errorMessage = error.localizedDescription }
+            }
+        }
+    }
+
+    private func readAccountAndQuota() async throws {
+        let result = try await session.request("account/read", params: ["refreshToken": false])
         try Task.checkCancellation()
         guard let account = result["account"] as? [String: Any], account["type"] as? String == "chatgpt" else {
             clearAccount()
             return
         }
-        isSignedIn = true
-        email = account["email"] as? String
-    }
-
-    private func readQuota() async throws {
-        let result = try await client.request("account/rateLimits/read")
+        authentication = .signedIn(email: account["email"] as? String)
+        let quota = try await session.request("account/rateLimits/read")
         try Task.checkCancellation()
-        windows = QuotaWindow.parse(result)
+        windows = QuotaWindow.parse(quota)
         updatedAt = .now
     }
 
@@ -227,19 +248,10 @@ final class QuotaModel {
     private func receive(_ method: String, params: [String: Any]) {
         switch method {
         case "account/login/completed":
-            guard isSigningIn, let id = loginID, params["loginId"] as? String == id else { return }
+            guard let attempt = pendingLogin, params["loginId"] as? String == attempt.serverID else { return }
             clearLogin()
             if params["success"] as? Bool == true {
-                // Read account before refresh(): the signed-in flag is still false.
-                isRefreshing = true
-                operation = Task {
-                    defer { isRefreshing = false }
-                    do {
-                        try await readAccount()
-                        if isSignedIn { try await readQuota() }
-                    } catch is CancellationError {
-                    } catch { errorMessage = error.localizedDescription }
-                }
+                performAccountOperation { try await self.readAccountAndQuota() }
             } else {
                 errorMessage = "Sign-in did not complete. Please try again."
             }
@@ -248,14 +260,21 @@ final class QuotaModel {
             windows = QuotaWindow.parse(params)
             updatedAt = .now
         case "account/updated":
-            if params["authMode"] is NSNull { clearAccount() }
+            if params["authMode"] is NSNull, !isSigningIn { clearAccount() }
         default: break
         }
     }
 
+    private func disconnected() {
+        cancelPendingWork()
+        clearLogin()
+        connection = .disconnected
+        clearAccount()
+        errorMessage = "The Codex helper stopped. Choose Reconnect to try again."
+    }
+
     private func clearAccount() {
-        isSignedIn = false
-        email = nil
+        authentication = .signedOut
         windows = []
         updatedAt = nil
     }
@@ -263,16 +282,25 @@ final class QuotaModel {
     private func clearLogin() {
         loginTimeout?.cancel()
         loginTimeout = nil
-        loginAttempt = nil
-        loginID = nil
-        loginURL = nil
-        isSigningIn = false
+        if isSigningIn { authentication = .signedOut }
+    }
+
+    private func cancelPendingWork() {
+        connectionTask?.cancel()
+        loginTask?.cancel()
+        accountTask?.cancel()
+        polling?.cancel()
+        loginTimeout?.cancel()
+        accountOperationID = nil
     }
 
     func shutdown() async {
-        operation?.cancel()
-        polling?.cancel()
+        let tasks = [connectionTask, loginTask, accountTask].compactMap { $0 }
+        cancelPendingWork()
         clearLogin()
-        await client.stop()
+        connection = .disconnected
+        clearAccount()
+        await session.stop()
+        for task in tasks { await task.value }
     }
 }

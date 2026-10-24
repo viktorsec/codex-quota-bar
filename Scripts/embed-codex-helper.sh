@@ -8,18 +8,36 @@ if [[ ! -x "$helper_source" ]]; then
     echo "error: Run bash Scripts/prepare-codex-helper.sh $NATIVE_ARCH_ACTUAL before building." >&2
     exit 1
 fi
-# Stage in Xcode's scratch directory so copying and signing can create their
-# temporary sibling files while build-script sandboxing remains enabled.
+# Xcode permits scratch files under TARGET_TEMP_DIR. DerivedSources is stricter:
+# codesign's temporary sibling file is denied even when the executable is a
+# declared output. Keep the staging executable in the dedicated scratch area.
 helper_dir="$TARGET_TEMP_DIR/CodexHelper"
 resource_dir="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Codex"
 mkdir -p "$helper_dir" "$resource_dir"
-install -m 755 "$helper_source" "$helper_dir/codex-app-server"
+install -m 755 "$helper_source" "$helper_dir/CodexQuotaBarAccountHelper"
+debug_mode=0
+if [[ "$CONFIGURATION" == Debug ]]; then debug_mode=1; fi
+/usr/bin/xcrun clang -fobjc-arc -fno-modules -Wno-deprecated-declarations \
+    -DQUOTA_DEBUG="$debug_mode" \
+    -arch "$NATIVE_ARCH_ACTUAL" -isysroot "$SDKROOT" \
+    -mmacosx-version-min="$MACOSX_DEPLOYMENT_TARGET" \
+    -framework Foundation -framework Security \
+    "$SRCROOT/HelperSources/CredentialStore.m" \
+    "$SRCROOT/HelperSources/Tests/CredentialStoreTests.m" \
+    -o "$helper_dir/CodexQuotaBarCredentialStore"
 cp "$SRCROOT/Vendor/Codex/LICENSE" "$resource_dir/LICENSE"
 cp "$SRCROOT/Vendor/Codex/NOTICE" "$resource_dir/NOTICE"
 cp "$SRCROOT/Vendor/Codex/VERSION" "$resource_dir/VERSION"
 
-# Attach sandbox-inheritance entitlements without accessing a signing key.
-# Xcode's native Copy Files phase signs the embedded copy with the app's identity.
+# Stage the inheritance entitlements with an ad-hoc signature, which needs no
+# Keychain access. Xcode's native Copy Files phase then signs the embedded copy
+# using the app's identity, preserving these entitlements. Signing with a real
+# identity inside this sandboxed script cannot reliably access the Keychain.
 /usr/bin/codesign --force --sign - --options runtime --timestamp=none \
+    --identifier "$PRODUCT_BUNDLE_IDENTIFIER.AccountHelper" \
     --entitlements "$SRCROOT/Configuration/CodexHelper.entitlements" \
-    "$helper_dir/codex-app-server"
+    "$helper_dir/CodexQuotaBarAccountHelper"
+/usr/bin/codesign --force --sign - --options runtime --timestamp=none \
+    --identifier "$PRODUCT_BUNDLE_IDENTIFIER.CredentialStore" \
+    --entitlements "$SRCROOT/Configuration/CodexHelper.entitlements" \
+    "$helper_dir/CodexQuotaBarCredentialStore"

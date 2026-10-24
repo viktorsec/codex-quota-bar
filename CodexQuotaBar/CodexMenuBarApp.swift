@@ -20,7 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--smoke-test") {
+        if ProcessInfo.processInfo.arguments.contains("--smoke-test") ||
+            ProcessInfo.processInfo.arguments.contains("--check-saved-sign-in") ||
+            ProcessInfo.processInfo.arguments.contains("--credential-self-test") ||
+            ProcessInfo.processInfo.arguments.contains("--check-model-state") {
             Task { await HelperSmokeCheck.run() }
             return
         }

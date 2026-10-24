@@ -23,11 +23,32 @@ The app uses the documented [Codex App Server protocol](https://developers.opena
 over stdin/stdout. It calls only initialization and account/login/quota methods;
 it does not start agent threads, run tools, or make model requests.
 
-The helper uses a dedicated `CODEX_HOME` under the app container's Application
-Support directory (`CodexQuotaBar/Codex`). It uses Codex's `keyring` credential
-storage mode, with no plaintext credential fallback. It does not read, import,
-or sign out the user's regular CLI/IDE session. Authentication tokens and login
-URLs are never written to our app logs.
+The account helper is named `CodexQuotaBarAccountHelper`, with signing identifier
+`$(PRODUCT_BUNDLE_IDENTIFIER).AccountHelper`. The app-owned credential broker is
+`CodexQuotaBarCredentialStore`, with identifier
+`$(PRODUCT_BUNDLE_IDENTIFIER).CredentialStore`. Both are signed by Xcode with the
+app's identity and inherit its sandbox. These identifiers remain stable across
+builds and upstream helper versions.
+
+Sign-in persists in the login Keychain using Codex's `keyring` mode and direct
+backend (`features.secret_auth_storage=false`). The broker creates each entry
+with an explicit access policy trusting both helpers. It disables Keychain UI in
+its own process and checks access before starting the account helper and before
+account operations. No token data is sent back to the Swift app or logged.
+
+The broker also records and validates the account helper's designated signing
+requirement. Unreadable credentials or a changed helper identity select a fresh
+credential slot and request browser sign-in; old items are not read with a prompt
+or deleted. A locked Keychain produces a retry message and preserves the slot.
+The app deliberately does not import credentials from the earlier development
+prototype or from a regular Codex CLI/IDE installation.
+
+Each slot has its own `CODEX_HOME` under the app container's Application Support
+directory (`CodexQuotaBar/Authentication/<UUID>`). UserDefaults stores only the
+non-secret slot UUID. Authentication tokens stay in Keychain, never in auth.json
+or UserDefaults. Refresh tokens allow silent sign-in after normal relaunches.
+The broker integration is specific to the pinned upstream storage schema and
+must be rechecked when updating Codex.
 
 The app permits outgoing network requests and an incoming connection for Codex's
 local OAuth callback listener. The helper inherits these permissions. App Sandbox
@@ -43,14 +64,39 @@ The Debug app includes an opt-in packaging check:
 
 It checks container execution, initializes the bundled helper, reads account
 state, starts and cancels browser authentication without opening a browser, and
-shuts down the helper. It prints only pass/fail messages. Full authentication,
-Keychain persistence, and live quota retrieval require completing browser sign-in.
+shuts down the helper. It prints only pass/fail messages.
+
+Additional Debug launch arguments provide regression checks:
+
+- `--credential-self-test`: creates disposable, randomly named test entries;
+  checks reuse, value-only updates, a changed helper identity, and denied access
+  without UI; then deletes only those test entries.
+- `--check-saved-sign-in`: restores an existing browser login in a fresh process
+  and retrieves live quota without starting another browser login. It reports
+  only pass/fail, never account details or tokens.
+- `--check-model-state`: verifies connection, saved-account restoration, refresh,
+  shutdown, and cancelled connection states using the app's saved login.
+
+Credential fixtures live in `HelperSources/Tests/CredentialStoreTests.m`, separate
+from the production Keychain implementation. They compile only in Debug builds.
+Their named exit-status contract is declared in `HelperSources/CredentialStore.h`
+and mirrored by `CredentialAccess.ExitStatus` in Swift.
 
 Validated locally: signed sandboxed Debug build; helper smoke check; user-completed
-browser sign-in and live quota display. Clean-machine installation, relaunch
-persistence, and App Store review have not yet been validated.
+browser sign-in without a Keychain password prompt; saved sign-in and live quota
+retrieval from a fresh process. Clean-machine installation and App Store review
+have not yet been validated.
 
 Pinned upstream release and checksums: `Vendor/Codex/VERSION`.
+
+## Code structure
+
+- `CodexClient` owns the helper process and JSON-RPC transport.
+- `AuthenticationSession` owns credential-slot selection, recovery, and the
+  pinned upstream authentication compatibility rules.
+- `QuotaModel` owns explicit connection/authentication states and separate tasks
+  for connection, browser login, and account operations.
+- `QuotaWindow` parses quota values for display in the menu.
 
 ## Helper source and licence
 

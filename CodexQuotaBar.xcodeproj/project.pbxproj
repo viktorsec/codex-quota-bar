@@ -7,7 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		000000000000000160000001 /* CodexHelper/codex-app-server in Embed Signed Helper */ = {isa = PBXBuildFile; fileRef = 000000000000000160000002 /* CodexHelper/codex-app-server */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		000000000000000160000001 /* CodexHelper/CodexQuotaBarAccountHelper in Embed Signed Helper */ = {isa = PBXBuildFile; fileRef = 000000000000000160000002 /* CodexHelper/CodexQuotaBarAccountHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		000000000000000160000003 /* CodexHelper/CodexQuotaBarCredentialStore in Embed Signed Helper */ = {isa = PBXBuildFile; fileRef = 000000000000000160000004 /* CodexHelper/CodexQuotaBarCredentialStore */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -16,7 +17,8 @@
 			dstPath = Contents/Helpers;
 			dstSubfolder = Wrapper;
 			files = (
-				000000000000000160000001 /* CodexHelper/codex-app-server in Embed Signed Helper */,
+				000000000000000160000001 /* CodexHelper/CodexQuotaBarAccountHelper in Embed Signed Helper */,
+				000000000000000160000003 /* CodexHelper/CodexQuotaBarCredentialStore in Embed Signed Helper */,
 			);
 			name = "Embed Signed Helper";
 		};
@@ -24,7 +26,8 @@
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* CodexQuotaBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CodexQuotaBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		000000000000000160000002 /* CodexHelper/codex-app-server */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = CodexHelper/codex-app-server; sourceTree = TARGET_TEMP_DIR; };
+		000000000000000160000002 /* CodexHelper/CodexQuotaBarAccountHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = CodexHelper/CodexQuotaBarAccountHelper; sourceTree = TARGET_TEMP_DIR; };
+		000000000000000160000004 /* CodexHelper/CodexQuotaBarCredentialStore */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = CodexHelper/CodexQuotaBarCredentialStore; sourceTree = TARGET_TEMP_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -64,7 +67,8 @@
 		2954E280308C3B7200D90F47 /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000160000002 /* CodexHelper/codex-app-server */,
+				000000000000000160000002 /* CodexHelper/CodexQuotaBarAccountHelper */,
+				000000000000000160000004 /* CodexHelper/CodexQuotaBarCredentialStore */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -139,6 +143,9 @@
 			isa = PBXShellScriptBuildPhase;
 			inputPaths = (
 				"$(SRCROOT)/Scripts/embed-codex-helper.sh",
+				"$(SRCROOT)/HelperSources/CredentialStore.m",
+				"$(SRCROOT)/HelperSources/CredentialStore.h",
+				"$(SRCROOT)/HelperSources/Tests/CredentialStoreTests.m",
 				"$(SRCROOT)/Vendor/Codex/$(NATIVE_ARCH_ACTUAL)/codex-app-server",
 				"$(SRCROOT)/Configuration/CodexHelper.entitlements",
 				"$(SRCROOT)/Vendor/Codex/LICENSE",
@@ -147,7 +154,8 @@
 			);
 			name = "Embed Codex Helper";
 			outputPaths = (
-				"$(TARGET_TEMP_DIR)/CodexHelper/codex-app-server",
+				"$(TARGET_TEMP_DIR)/CodexHelper/CodexQuotaBarAccountHelper",
+				"$(TARGET_TEMP_DIR)/CodexHelper/CodexQuotaBarCredentialStore",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Codex/LICENSE",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Codex/NOTICE",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Codex/VERSION",

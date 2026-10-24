@@ -32,36 +32,23 @@ final class CodexClient {
     private var timeouts: [Int: Task<Void, Never>] = [:]
     private(set) var isConnected = false
 
-    func start() async throws {
+    struct Configuration {
+        let executable: URL
+        let workingDirectory: URL
+        let arguments: [String]
+        let environment: [String: String]
+    }
+
+    func start(configuration: Configuration) async throws {
         guard process == nil else { return }
-        let helper = Bundle.main.bundleURL
-            .appending(path: "Contents/Helpers/codex-app-server")
-        guard FileManager.default.isExecutableFile(atPath: helper.path) else {
+        guard FileManager.default.isExecutableFile(atPath: configuration.executable.path) else {
             throw ClientError.missingHelper
         }
-        let home = try FileManager.default.url(
-            for: .applicationSupportDirectory, in: .userDomainMask,
-            appropriateFor: nil, create: true
-        ).appending(path: "CodexQuotaBar/Codex", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(
-            at: home, withIntermediateDirectories: true,
-            attributes: [.posixPermissions: 0o700]
-        )
-
         let child = Process()
-        child.executableURL = helper
-        child.arguments = [
-            "--listen", "stdio://",
-            "-c", "cli_auth_credentials_store=\"keyring\"",
-            "-c", "forced_login_method=\"chatgpt\""
-        ]
-        // Do not inherit API keys, tokens, proxies, or the user's CODEX_HOME.
-        child.environment = [
-            "HOME": NSHomeDirectory(), "CODEX_HOME": home.path,
-            "TMPDIR": NSTemporaryDirectory(), "PATH": "/usr/bin:/bin",
-            "LANG": "en_US.UTF-8", "RUST_LOG": "error"
-        ]
-        child.currentDirectoryURL = home
+        child.executableURL = configuration.executable
+        child.arguments = configuration.arguments
+        child.environment = configuration.environment
+        child.currentDirectoryURL = configuration.workingDirectory
         let stdin = Pipe(), stdout = Pipe(), stderr = Pipe()
         child.standardInput = stdin
         child.standardOutput = stdout
