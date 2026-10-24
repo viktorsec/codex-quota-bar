@@ -82,11 +82,6 @@ from the production Keychain implementation. They compile only in Debug builds.
 Their named exit-status contract is declared in `HelperSources/CredentialStore.h`
 and mirrored by `CredentialAccess.ExitStatus` in Swift.
 
-Validated locally: signed sandboxed Debug build; helper smoke check; user-completed
-browser sign-in without a Keychain password prompt; saved sign-in and live quota
-retrieval from a fresh process. Clean-machine installation and App Store review
-have not yet been validated.
-
 Pinned upstream release and checksums: `Vendor/Codex/VERSION`.
 
 ## Helper source and licence

@@ -8,7 +8,14 @@ import AppKit
         MenuBarExtra {
             ContentView(model: delegate.model)
         } label: {
-            Image(nsImage: delegate.model.menuBarImage)
+            Image(nsImage: delegate.model.weeklyMenuBarImage)
+        }
+        .menuBarExtraStyle(.menu)
+
+        MenuBarExtra {
+            ContentView(model: delegate.model)
+        } label: {
+            Image(nsImage: delegate.model.fiveHourMenuBarImage)
         }
         .menuBarExtraStyle(.menu)
     }

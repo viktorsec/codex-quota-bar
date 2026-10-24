@@ -23,7 +23,8 @@ final class QuotaModel {
     private(set) var updatedAt: Date?
     private(set) var errorMessage: String?
     // Stable image identity avoids repeatedly invalidating MenuBarExtra layout.
-    private(set) var menuBarImage = WeeklyQuotaBadge.image(window: nil, now: .now)
+    private(set) var weeklyMenuBarImage = QuotaBadge.image(window: nil, period: .weekly, now: .now)
+    private(set) var fiveHourMenuBarImage = QuotaBadge.image(window: nil, period: .fiveHour, now: .now)
     private var accountOperationID: UUID?
 
     @ObservationIgnored private let session = AuthenticationSession()
@@ -50,9 +51,15 @@ final class QuotaModel {
         return nil
     }
     var weeklyWindow: QuotaWindow? {
+        quotaWindow(durationMinutes: 10_080)
+    }
+    var fiveHourWindow: QuotaWindow? {
+        quotaWindow(durationMinutes: 300)
+    }
+    private func quotaWindow(durationMinutes: Int) -> QuotaWindow? {
         guard isConnected, isSignedIn else { return nil }
-        let weekly = windows.filter { $0.windowDurationMins == 10_080 }
-        return weekly.first { $0.id.hasPrefix("codex.") } ?? weekly.first
+        let matching = windows.filter { $0.windowDurationMins == durationMinutes }
+        return matching.first { $0.id.hasPrefix("codex.") } ?? matching.first
     }
 
     init() {
@@ -78,7 +85,7 @@ final class QuotaModel {
                 try await readAccountAndQuota()
                 try Task.checkCancellation()
                 connection = .connected
-                updateMenuBarImage()
+                updateMenuBarImages()
                 startPolling()
             } catch is CancellationError {
                 if connection == .connecting { connection = .disconnected }
@@ -198,7 +205,7 @@ final class QuotaModel {
         windows = QuotaWindow.parse(quota)
         resetCredits = ResetCredits.parse(quota)
         updatedAt = .now
-        updateMenuBarImage()
+        updateMenuBarImages()
     }
 
     private func startPolling() {
@@ -208,7 +215,7 @@ final class QuotaModel {
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(60)) } catch { return }
                 guard let self else { return }
-                self.updateMenuBarImage()
+                self.updateMenuBarImages()
                 minutes += 1
                 if minutes == 5 {
                     minutes = 0
@@ -237,7 +244,7 @@ final class QuotaModel {
                 resetCredits = ResetCredits.parse(params)
             }
             updatedAt = .now
-            updateMenuBarImage()
+            updateMenuBarImages()
         case "account/updated":
             if params["authMode"] is NSNull, !isSigningIn { clearAccount() }
         default: break
@@ -257,11 +264,13 @@ final class QuotaModel {
         windows = []
         resetCredits = nil
         updatedAt = nil
-        updateMenuBarImage()
+        updateMenuBarImages()
     }
 
-    private func updateMenuBarImage() {
-        menuBarImage = WeeklyQuotaBadge.image(window: weeklyWindow, now: .now)
+    private func updateMenuBarImages() {
+        let now = Date.now
+        weeklyMenuBarImage = QuotaBadge.image(window: weeklyWindow, period: .weekly, now: now)
+        fiveHourMenuBarImage = QuotaBadge.image(window: fiveHourWindow, period: .fiveHour, now: now)
     }
 
     private func clearLogin() {
