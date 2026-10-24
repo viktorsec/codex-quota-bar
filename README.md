@@ -89,15 +89,6 @@ have not yet been validated.
 
 Pinned upstream release and checksums: `Vendor/Codex/VERSION`.
 
-## Code structure
-
-- `CodexClient` owns the helper process and JSON-RPC transport.
-- `AuthenticationSession` owns credential-slot selection, recovery, and the
-  pinned upstream authentication compatibility rules.
-- `QuotaModel` owns explicit connection/authentication states and separate tasks
-  for connection, browser login, and account operations.
-- `QuotaWindow` parses quota values for display in the menu.
-
 ## Helper source and licence
 
 The server is OpenAI's standalone `codex-app-server` executable from the public

@@ -8,7 +8,7 @@ import AppKit
         MenuBarExtra {
             ContentView(model: delegate.model)
         } label: {
-            Label(delegate.model.menuBarTitle, systemImage: "gauge.medium")
+            Image(nsImage: delegate.model.menuBarImage)
         }
         .menuBarExtraStyle(.menu)
     }
