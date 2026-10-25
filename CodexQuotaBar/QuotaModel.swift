@@ -22,11 +22,14 @@ final class QuotaModel {
     private(set) var resetCredits: ResetCredits?
     private(set) var updatedAt: Date?
     private(set) var errorMessage: String?
-    // Stable image identity avoids repeatedly invalidating MenuBarExtra layout.
+    // Render once per quota update or countdown tick; status items reuse these images.
     private(set) var weeklyMenuBarImage = QuotaBadge.image(window: nil, period: .weekly, now: .now)
     private(set) var fiveHourMenuBarImage = QuotaBadge.image(window: nil, period: .fiveHour, now: .now)
+    private(set) var resetExpirationMenuBarImage = QuotaBadge.resetExpirationImage(credits: nil, now: .now)
+    private(set) var combinedMenuBarImage = QuotaBadge.combinedImage(window: nil, credits: nil, now: .now)
     private var accountOperationID: UUID?
 
+    @ObservationIgnored private let preferences: MenuBarPreferences
     @ObservationIgnored private let session = AuthenticationSession()
     @ObservationIgnored private var connectionTask: Task<Void, Never>?
     @ObservationIgnored private var loginTask: Task<Void, Never>?
@@ -62,7 +65,8 @@ final class QuotaModel {
         return matching.first { $0.id.hasPrefix("codex.") } ?? matching.first
     }
 
-    init() {
+    init(preferences: MenuBarPreferences? = nil) {
+        self.preferences = preferences ?? MenuBarPreferences()
         session.onNotification = { [weak self] method, params in
             self?.receive(method, params: params)
         }
@@ -211,14 +215,14 @@ final class QuotaModel {
     private func startPolling() {
         polling?.cancel()
         polling = Task { [weak self] in
-            var minutes = 0
+            var lastAttempt = ContinuousClock.now
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(60)) } catch { return }
                 guard let self else { return }
                 self.updateMenuBarImages()
-                minutes += 1
-                if minutes == 5 {
-                    minutes = 0
+                let now = ContinuousClock.now
+                if lastAttempt.duration(to: now) >= .seconds(self.preferences.refreshIntervalMinutes * 60) {
+                    lastAttempt = now
                     self.refresh()
                 }
             }
@@ -271,6 +275,8 @@ final class QuotaModel {
         let now = Date.now
         weeklyMenuBarImage = QuotaBadge.image(window: weeklyWindow, period: .weekly, now: now)
         fiveHourMenuBarImage = QuotaBadge.image(window: fiveHourWindow, period: .fiveHour, now: now)
+        resetExpirationMenuBarImage = QuotaBadge.resetExpirationImage(credits: resetCredits, now: now)
+        combinedMenuBarImage = QuotaBadge.combinedImage(window: weeklyWindow, credits: resetCredits, now: now)
     }
 
     private func clearLogin() {

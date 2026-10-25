@@ -10,6 +10,11 @@ struct ResetCredits {
     let availableCount: Int
     let credits: [Credit]
 
+    func nextExpiration(after now: Date) -> Date? {
+        guard availableCount > 0 else { return nil }
+        return credits.compactMap(\.expiresAt).filter { $0 > now }.min()
+    }
+
     static func parse(_ response: [String: Any]) -> ResetCredits? {
         guard let summary = response["rateLimitResetCredits"] as? [String: Any],
               let count = summary["availableCount"] as? Int, count >= 0 else { return nil }

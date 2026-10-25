@@ -3,6 +3,7 @@ import AppKit
 
 struct ContentView: View {
     let model: QuotaModel
+    var openSettings: () -> Void = {}
 
     var body: some View {
         Text("Codex Quota Bar")
@@ -29,9 +30,9 @@ struct ContentView: View {
             Divider()
             if let resets = model.resetCredits {
                 if resets.availableCount == 0 {
-                    Text("No resets left")
+                    Text("No banked resets left")
                 } else {
-                    Text(resets.availableCount == 1 ? "1 reset available" : "\(resets.availableCount) resets available")
+                    Text(resets.availableCount == 1 ? "1 banked reset available" : "\(resets.availableCount) banked resets available")
                     ForEach(resets.credits) { credit in
                         if let expiration = credit.expiresAt {
                             Text("Expires \(expiration.formatted(date: .abbreviated, time: .shortened))")
@@ -44,7 +45,7 @@ struct ContentView: View {
                     }
                 }
             } else {
-                Text("Reset availability unavailable")
+                Text("Banked reset availability unavailable")
             }
             Divider()
             if let updated = model.updatedAt {
@@ -65,6 +66,9 @@ struct ContentView: View {
         }
 
         Divider()
+
+        Button("Settings…", action: openSettings)
+            .keyboardShortcut(",")
 
         Button("Quit Codex Quota Bar") {
             NSApplication.shared.terminate(nil)
