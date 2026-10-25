@@ -11,7 +11,7 @@ final class AuthenticationSession {
     }
 
     static var accountHelperURL: URL {
-        Bundle.main.bundleURL.appending(path: "Contents/Helpers/CodexQuotaBarAccountHelper")
+        Bundle.main.bundleURL.appending(path: "Contents/Helpers/UseYourTokensAccountHelper")
     }
 
     var onNotification: ((String, [String: Any]) -> Void)? {
@@ -75,7 +75,7 @@ final class AuthenticationSession {
         let root = try FileManager.default.url(
             for: .applicationSupportDirectory, in: .userDomainMask,
             appropriateFor: nil, create: true
-        ).appending(path: "CodexQuotaBar/Authentication", directoryHint: .isDirectory)
+        ).appending(path: "UseYourTokens/Authentication", directoryHint: .isDirectory)
         let key = "authenticationStoreGeneration"
         let stored = UserDefaults.standard.string(forKey: key).flatMap(UUID.init(uuidString:))
         var generation = stored ?? UUID()

@@ -77,7 +77,7 @@ final class CodexClient {
         do {
             try child.run()
             _ = try await request("initialize", params: [
-                "clientInfo": ["name": "codex_quota_bar", "title": "Codex Quota Bar", "version": "0.1.0"]
+                "clientInfo": ["name": "use_your_tokens", "title": "Use Your Tokens", "version": "0.1.0"]
             ])
             try send(["method": "initialized", "params": [:]])
             isConnected = true

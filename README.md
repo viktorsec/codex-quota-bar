@@ -1,4 +1,4 @@
-# Codex Quota Bar
+# Use Your Tokens
 
 A macOS menu bar app showing remaining quota and reset times for Codex account.
 
@@ -23,9 +23,9 @@ The app uses the documented [Codex App Server protocol](https://developers.opena
 over stdin/stdout. It calls only initialization and account/login/quota methods;
 it does not start agent threads, run tools, or make model requests.
 
-The account helper is named `CodexQuotaBarAccountHelper`, with signing identifier
+The account helper is named `UseYourTokensAccountHelper`, with signing identifier
 `$(PRODUCT_BUNDLE_IDENTIFIER).AccountHelper`. The app-owned credential broker is
-`CodexQuotaBarCredentialStore`, with identifier
+`UseYourTokensCredentialStore`, with identifier
 `$(PRODUCT_BUNDLE_IDENTIFIER).CredentialStore`. Both are signed by Xcode with the
 app's identity and inherit its sandbox. These identifiers remain stable across
 builds and upstream helper versions.
@@ -44,7 +44,7 @@ The app deliberately does not import credentials from the earlier development
 prototype or from a regular Codex CLI/IDE installation.
 
 Each slot has its own `CODEX_HOME` under the app container's Application Support
-directory (`CodexQuotaBar/Authentication/<UUID>`). UserDefaults stores only the
+directory (`UseYourTokens/Authentication/<UUID>`). UserDefaults stores only the
 non-secret slot UUID. Authentication tokens stay in Keychain, never in auth.json
 or UserDefaults. Refresh tokens allow silent sign-in after normal relaunches.
 The broker integration is specific to the pinned upstream storage schema and
@@ -59,7 +59,7 @@ and Xcode's build-script sandbox remain enabled.
 The Debug app includes an opt-in packaging check:
 
 ```sh
-/path/to/CodexQuotaBar.app/Contents/MacOS/CodexQuotaBar --smoke-test
+"/path/to/Use Your Tokens.app/Contents/MacOS/Use Your Tokens" --smoke-test
 ```
 
 It checks container execution, initializes the bundled helper, reads account

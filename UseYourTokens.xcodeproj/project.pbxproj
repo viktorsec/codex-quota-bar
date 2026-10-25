@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		000000000000000160000001 /* CodexHelper/CodexQuotaBarAccountHelper in Embed Signed Helper */ = {isa = PBXBuildFile; fileRef = 000000000000000160000002 /* CodexHelper/CodexQuotaBarAccountHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		000000000000000160000003 /* CodexHelper/CodexQuotaBarCredentialStore in Embed Signed Helper */ = {isa = PBXBuildFile; fileRef = 000000000000000160000004 /* CodexHelper/CodexQuotaBarCredentialStore */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		000000000000000160000001 /* CodexHelper/UseYourTokensAccountHelper in Embed Signed Helper */ = {isa = PBXBuildFile; fileRef = 000000000000000160000002 /* CodexHelper/UseYourTokensAccountHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		000000000000000160000003 /* CodexHelper/UseYourTokensCredentialStore in Embed Signed Helper */ = {isa = PBXBuildFile; fileRef = 000000000000000160000004 /* CodexHelper/UseYourTokensCredentialStore */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -17,23 +17,23 @@
 			dstPath = Contents/Helpers;
 			dstSubfolder = Wrapper;
 			files = (
-				000000000000000160000001 /* CodexHelper/CodexQuotaBarAccountHelper in Embed Signed Helper */,
-				000000000000000160000003 /* CodexHelper/CodexQuotaBarCredentialStore in Embed Signed Helper */,
+				000000000000000160000001 /* CodexHelper/UseYourTokensAccountHelper in Embed Signed Helper */,
+				000000000000000160000003 /* CodexHelper/UseYourTokensCredentialStore in Embed Signed Helper */,
 			);
 			name = "Embed Signed Helper";
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		000000000000000000000120 /* CodexQuotaBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CodexQuotaBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		000000000000000160000002 /* CodexHelper/CodexQuotaBarAccountHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = CodexHelper/CodexQuotaBarAccountHelper; sourceTree = TARGET_TEMP_DIR; };
-		000000000000000160000004 /* CodexHelper/CodexQuotaBarCredentialStore */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = CodexHelper/CodexQuotaBarCredentialStore; sourceTree = TARGET_TEMP_DIR; };
+		000000000000000000000120 /* Use Your Tokens.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Use Your Tokens.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000160000002 /* CodexHelper/UseYourTokensAccountHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = CodexHelper/UseYourTokensAccountHelper; sourceTree = TARGET_TEMP_DIR; };
+		000000000000000160000004 /* CodexHelper/UseYourTokensCredentialStore */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = CodexHelper/UseYourTokensCredentialStore; sourceTree = TARGET_TEMP_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		000000000000000000000010 /* CodexQuotaBar */ = {
+		000000000000000000000010 /* UseYourTokens */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = CodexQuotaBar;
+			path = UseYourTokens;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -50,7 +50,7 @@
 		000000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000010 /* CodexQuotaBar */,
+				000000000000000000000010 /* UseYourTokens */,
 				000000000000000000000020 /* Products */,
 				2954E280308C3B7200D90F47 /* Recovered References */,
 			);
@@ -59,7 +59,7 @@
 		000000000000000000000020 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000120 /* CodexQuotaBar.app */,
+				000000000000000000000120 /* Use Your Tokens.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -67,8 +67,8 @@
 		2954E280308C3B7200D90F47 /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000160000002 /* CodexHelper/CodexQuotaBarAccountHelper */,
-				000000000000000160000004 /* CodexHelper/CodexQuotaBarCredentialStore */,
+				000000000000000160000002 /* CodexHelper/UseYourTokensAccountHelper */,
+				000000000000000160000004 /* CodexHelper/UseYourTokensCredentialStore */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -76,9 +76,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		000000000000000100000000 /* CodexQuotaBar */ = {
+		000000000000000100000000 /* Use Your Tokens */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 000000000000000110000000 /* Build configuration list for PBXNativeTarget "CodexQuotaBar" */;
+			buildConfigurationList = 000000000000000110000000 /* Build configuration list for PBXNativeTarget "Use Your Tokens" */;
 			buildPhases = (
 				000000000000000120000000 /* Sources */,
 				000000000000000130000000 /* Frameworks */,
@@ -89,11 +89,11 @@
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
-				000000000000000000000010 /* CodexQuotaBar */,
+				000000000000000000000010 /* UseYourTokens */,
 			);
-			name = CodexQuotaBar;
-			productName = MyApp;
-			productReference = 000000000000000000000120 /* CodexQuotaBar.app */;
+			name = "Use Your Tokens";
+			productName = "Use Your Tokens";
+			productReference = 000000000000000000000120 /* Use Your Tokens.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -111,7 +111,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 000000000000000010000000 /* Build configuration list for PBXProject "CodexQuotaBar" */;
+			buildConfigurationList = 000000000000000010000000 /* Build configuration list for PBXProject "UseYourTokens" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -125,7 +125,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				000000000000000100000000 /* CodexQuotaBar */,
+				000000000000000100000000 /* Use Your Tokens */,
 			);
 		};
 /* End PBXProject section */
@@ -154,8 +154,8 @@
 			);
 			name = "Embed Codex Helper";
 			outputPaths = (
-				"$(TARGET_TEMP_DIR)/CodexHelper/CodexQuotaBarAccountHelper",
-				"$(TARGET_TEMP_DIR)/CodexHelper/CodexQuotaBarCredentialStore",
+				"$(TARGET_TEMP_DIR)/CodexHelper/UseYourTokensAccountHelper",
+				"$(TARGET_TEMP_DIR)/CodexHelper/UseYourTokensCredentialStore",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Codex/LICENSE",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Codex/NOTICE",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Codex/VERSION",
@@ -176,7 +176,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		000000000000000011000000 /* Debug configuration for PBXProject "CodexQuotaBar" */ = {
+		000000000000000011000000 /* Debug configuration for PBXProject "UseYourTokens" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -246,7 +246,7 @@
 			};
 			name = Debug;
 		};
-		000000000000000012000000 /* Release configuration for PBXProject "CodexQuotaBar" */ = {
+		000000000000000012000000 /* Release configuration for PBXProject "UseYourTokens" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -308,7 +308,7 @@
 			};
 			name = Release;
 		};
-		000000000000000111000000 /* Debug configuration for PBXNativeTarget "CodexQuotaBar" */ = {
+		000000000000000111000000 /* Debug configuration for PBXNativeTarget "Use Your Tokens" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
@@ -321,7 +321,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Codex Quota Bar";
+				INFOPLIST_KEY_CFBundleDisplayName = "Use Your Tokens";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_LSUIElement = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -352,7 +352,7 @@
 			};
 			name = Debug;
 		};
-		000000000000000112000000 /* Release configuration for PBXNativeTarget "CodexQuotaBar" */ = {
+		000000000000000112000000 /* Release configuration for PBXNativeTarget "Use Your Tokens" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
@@ -365,7 +365,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Codex Quota Bar";
+				INFOPLIST_KEY_CFBundleDisplayName = "Use Your Tokens";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_LSUIElement = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -399,19 +399,19 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		000000000000000010000000 /* Build configuration list for PBXProject "CodexQuotaBar" */ = {
+		000000000000000010000000 /* Build configuration list for PBXProject "UseYourTokens" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				000000000000000011000000 /* Debug configuration for PBXProject "CodexQuotaBar" */,
-				000000000000000012000000 /* Release configuration for PBXProject "CodexQuotaBar" */,
+				000000000000000011000000 /* Debug configuration for PBXProject "UseYourTokens" */,
+				000000000000000012000000 /* Release configuration for PBXProject "UseYourTokens" */,
 			);
 			defaultConfigurationName = Release;
 		};
-		000000000000000110000000 /* Build configuration list for PBXNativeTarget "CodexQuotaBar" */ = {
+		000000000000000110000000 /* Build configuration list for PBXNativeTarget "Use Your Tokens" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				000000000000000111000000 /* Debug configuration for PBXNativeTarget "CodexQuotaBar" */,
-				000000000000000112000000 /* Release configuration for PBXNativeTarget "CodexQuotaBar" */,
+				000000000000000111000000 /* Debug configuration for PBXNativeTarget "Use Your Tokens" */,
+				000000000000000112000000 /* Release configuration for PBXNativeTarget "Use Your Tokens" */,
 			);
 			defaultConfigurationName = Release;
 		};

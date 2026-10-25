@@ -1,4 +1,4 @@
-// Codex Quota Bar's credential access gate. No token data is ever printed.
+// Credential access gate for Use Your Tokens. No token data is ever printed.
 // Codex 0.164.0's direct keyring backend uses the legacy file-based Keychain;
 // SecAccess is needed to trust the account helper alongside this broker.
 #import "CredentialStore.h"
@@ -79,7 +79,7 @@ CredentialStoreStatus CredentialStorePrepare(NSString *service, NSString *accoun
     }
     if (status == errSecSuccess) {
         NSArray *trusted = @[(__bridge id)broker, (__bridge id)helper];
-        status = SecAccessCreate(CFSTR("Codex Quota Bar sign-in"), (__bridge CFArrayRef)trusted, &access);
+        status = SecAccessCreate(CFSTR("Use Your Tokens sign-in"), (__bridge CFArrayRef)trusted, &access);
     }
     if (status == errSecSuccess) {
         // An empty AuthDotJson means signed out. Codex updates this same entry
@@ -89,7 +89,7 @@ CredentialStoreStatus CredentialStorePrepare(NSString *service, NSString *accoun
             (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
             (__bridge id)kSecAttrService: service,
             (__bridge id)kSecAttrAccount: account,
-            (__bridge id)kSecAttrLabel: @"Codex Quota Bar sign-in",
+            (__bridge id)kSecAttrLabel: @"Use Your Tokens sign-in",
             (__bridge id)kSecAttrGeneric: (__bridge id)identity,
             (__bridge id)kSecAttrAccess: (__bridge id)access,
             (__bridge id)kSecUseKeychain: (__bridge id)keychain,
@@ -117,7 +117,7 @@ int main(int argc, const char *argv[]) {
         if (argc != 2) return CredentialStoreStorageUnavailable;
         NSString *account = [NSString stringWithUTF8String:argv[1]];
         NSString *executable = [NSString stringWithUTF8String:argv[0]];
-        NSString *helper = [executable.stringByDeletingLastPathComponent stringByAppendingPathComponent:@"CodexQuotaBarAccountHelper"];
+        NSString *helper = [executable.stringByDeletingLastPathComponent stringByAppendingPathComponent:@"UseYourTokensAccountHelper"];
 #if QUOTA_DEBUG
         if ([account isEqualToString:@"--self-test"]) return RunCredentialStoreTests(helper);
 #endif

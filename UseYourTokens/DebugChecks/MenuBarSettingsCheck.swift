@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 enum MenuBarSettingsCheck {
     static func run() async throws {
-        let suite = "CodexQuotaBar.SettingsCheck.\(UUID().uuidString)"
+        let suite = "UseYourTokens.SettingsCheck.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let preferences = MenuBarPreferences(defaults: defaults)
@@ -42,7 +42,7 @@ enum MenuBarSettingsCheck {
         try require(MenuBarPreferences(defaults: defaults).enabled == [.weekly, .resetExpiration], "Existing custom choices are preserved")
         print("PASS: panel preferences persist and always keep at least one enabled")
 
-        let name = "CodexQuotaBar.PositionCheck.\(UUID().uuidString)"
+        let name = "UseYourTokens.PositionCheck.\(UUID().uuidString)"
         let positionKey = "NSStatusItem Preferred Position \(name)"
         let visibleKey = "NSStatusItem Visible \(name)"
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -183,7 +183,7 @@ enum MenuBarSettingsCheck {
             throw NSError(domain: "MenuBarSettingsCheck", code: 2)
         }
         delegate.showSettings()
-        guard let window = NSApp.windows.first(where: { $0.title == "Codex Quota Bar Settings" }) else {
+        guard let window = NSApp.windows.first(where: { $0.title == "Use Your Tokens Settings" }) else {
             throw NSError(domain: "MenuBarSettingsCheck", code: 3)
         }
         guard let titlebar = window.titlebarAccessoryViewControllers.first?.view,
@@ -198,7 +198,7 @@ enum MenuBarSettingsCheck {
             ($0 as? NSClickGestureRecognizer)?.numberOfClicksRequired == 3
         }, "Secret window gesture is attached to the Settings title")
         delegate.showSettings()
-        try require(NSApp.windows.filter { $0.title == "Codex Quota Bar Settings" }.count == 1, "Settings reuses its window")
+        try require(NSApp.windows.filter { $0.title == "Use Your Tokens Settings" }.count == 1, "Settings reuses its window")
         window.close()
         try require(!window.isVisible, "Settings closes")
         delegate.showSettings()

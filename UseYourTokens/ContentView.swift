@@ -6,7 +6,7 @@ struct ContentView: View {
     var openSettings: () -> Void = {}
 
     var body: some View {
-        Text("Codex Quota Bar")
+        Text("Use Your Tokens")
 
         if model.isConnecting {
             Text("Connecting…")
@@ -70,7 +70,7 @@ struct ContentView: View {
         Button("Settings…", action: openSettings)
             .keyboardShortcut(",")
 
-        Button("Quit Codex Quota Bar") {
+        Button("Quit Use Your Tokens") {
             NSApplication.shared.terminate(nil)
         }
         .keyboardShortcut("q")

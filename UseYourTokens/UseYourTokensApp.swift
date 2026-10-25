@@ -40,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDel
         if settingsWindow == nil {
             let hosting = NSHostingController(rootView: SettingsView(preferences: preferences, model: model))
             let window = NSWindow(contentViewController: hosting)
-            window.title = "Codex Quota Bar Settings"
+            window.title = "Use Your Tokens Settings"
             window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
             configureCenteredTitlebar(window, opensSecretWindow: true)
             window.isReleasedWhenClosed = false
@@ -130,11 +130,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDel
     private func configureMainMenu() {
         let main = NSMenu()
         let appItem = NSMenuItem()
-        let appMenu = NSMenu(title: "Codex Quota Bar")
+        let appMenu = NSMenu(title: "Use Your Tokens")
         let settings = appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
         settings.target = self
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit Codex Quota Bar", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit Use Your Tokens", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         main.addItem(appItem)
         let windowItem = NSMenuItem()

@@ -3,7 +3,7 @@
 #if QUOTA_DEBUG
 // Isolated fixtures only: this service never contains an actual login.
 int RunCredentialStoreTests(NSString *helper) {
-    NSString *service = [@"Codex Quota Bar credential test " stringByAppendingString:NSUUID.UUID.UUIDString];
+    NSString *service = [@"Use Your Tokens credential test " stringByAppendingString:NSUUID.UUID.UUIDString];
     NSString *account = @"cli|0000000000000000";
     NSDictionary *query = @{
         (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
@@ -36,7 +36,7 @@ int RunCredentialStoreTests(NSString *helper) {
         SecTrustedApplicationRef helperOnly = NULL;
         SecAccessRef restricted = NULL;
         OSStatus status = SecTrustedApplicationCreateFromPath(helper.fileSystemRepresentation, &helperOnly);
-        if (status == errSecSuccess) status = SecAccessCreate(CFSTR("Codex Quota Bar denied-access test"), (__bridge CFArrayRef)@[(__bridge id)helperOnly], &restricted);
+        if (status == errSecSuccess) status = SecAccessCreate(CFSTR("Use Your Tokens denied-access test"), (__bridge CFArrayRef)@[(__bridge id)helperOnly], &restricted);
         if (status == errSecSuccess) {
             NSMutableDictionary *entry = [query mutableCopy];
             entry[(__bridge id)kSecAttrAccess] = (__bridge id)restricted;

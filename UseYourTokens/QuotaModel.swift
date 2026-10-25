@@ -129,7 +129,7 @@ final class QuotaModel {
                 attempt.url = url
                 authentication = .signingIn(attempt)
                 guard NSWorkspace.shared.open(url) else {
-                    throw NSError(domain: "CodexQuotaBar", code: 1, userInfo: [
+                    throw NSError(domain: "UseYourTokens", code: 1, userInfo: [
                         NSLocalizedDescriptionKey: "Could not open your browser. Cancel and try signing in again."
                     ])
                 }

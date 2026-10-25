@@ -51,7 +51,7 @@ enum CredentialAccess {
     @concurrent
     private static func run(helper: URL, arguments: [String]) async throws -> Int32 {
         let process = Process()
-        process.executableURL = helper.deletingLastPathComponent().appending(path: "CodexQuotaBarCredentialStore")
+        process.executableURL = helper.deletingLastPathComponent().appending(path: "UseYourTokensCredentialStore")
         process.arguments = arguments
         process.environment = [
             "HOME": NSHomeDirectory(), "TMPDIR": NSTemporaryDirectory(),

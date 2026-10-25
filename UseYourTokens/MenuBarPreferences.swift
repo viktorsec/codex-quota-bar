@@ -21,7 +21,7 @@ enum MenuBarPanel: String, CaseIterable {
         }
     }
 
-    var autosaveName: String { "CodexQuotaBar.\(rawValue)" }
+    var autosaveName: String { "UseYourTokens.\(rawValue)" }
 
     static let bankedResetsExplanation = "Banked resets are free or promotional one-time resets saved to your account that you can manually redeem whenever you choose. They can expire."
 

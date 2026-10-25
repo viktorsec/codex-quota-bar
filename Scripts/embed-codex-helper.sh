@@ -14,7 +14,7 @@ fi
 helper_dir="$TARGET_TEMP_DIR/CodexHelper"
 resource_dir="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Codex"
 mkdir -p "$helper_dir" "$resource_dir"
-install -m 755 "$helper_source" "$helper_dir/CodexQuotaBarAccountHelper"
+install -m 755 "$helper_source" "$helper_dir/UseYourTokensAccountHelper"
 debug_mode=0
 if [[ "$CONFIGURATION" == Debug ]]; then debug_mode=1; fi
 /usr/bin/xcrun clang -fobjc-arc -fno-modules -Wno-deprecated-declarations \
@@ -24,7 +24,7 @@ if [[ "$CONFIGURATION" == Debug ]]; then debug_mode=1; fi
     -framework Foundation -framework Security \
     "$SRCROOT/HelperSources/CredentialStore.m" \
     "$SRCROOT/HelperSources/Tests/CredentialStoreTests.m" \
-    -o "$helper_dir/CodexQuotaBarCredentialStore"
+    -o "$helper_dir/UseYourTokensCredentialStore"
 cp "$SRCROOT/Vendor/Codex/LICENSE" "$resource_dir/LICENSE"
 cp "$SRCROOT/Vendor/Codex/NOTICE" "$resource_dir/NOTICE"
 cp "$SRCROOT/Vendor/Codex/VERSION" "$resource_dir/VERSION"
@@ -36,8 +36,8 @@ cp "$SRCROOT/Vendor/Codex/VERSION" "$resource_dir/VERSION"
 /usr/bin/codesign --force --sign - --options runtime --timestamp=none \
     --identifier "$PRODUCT_BUNDLE_IDENTIFIER.AccountHelper" \
     --entitlements "$SRCROOT/Configuration/CodexHelper.entitlements" \
-    "$helper_dir/CodexQuotaBarAccountHelper"
+    "$helper_dir/UseYourTokensAccountHelper"
 /usr/bin/codesign --force --sign - --options runtime --timestamp=none \
     --identifier "$PRODUCT_BUNDLE_IDENTIFIER.CredentialStore" \
     --entitlements "$SRCROOT/Configuration/CodexHelper.entitlements" \
-    "$helper_dir/CodexQuotaBarCredentialStore"
+    "$helper_dir/UseYourTokensCredentialStore"
