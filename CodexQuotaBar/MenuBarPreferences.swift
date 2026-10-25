@@ -1,6 +1,14 @@
 import Foundation
 import Observation
 
+enum MenuBarStyle: String, CaseIterable {
+    case fullColor, monochrome
+
+    var title: String {
+        self == .fullColor ? "Full color" : "Monochrome, baby!"
+    }
+}
+
 enum MenuBarPanel: String, CaseIterable {
     case combined, fiveHour, weekly, resetExpiration
 
@@ -27,14 +35,17 @@ enum MenuBarPanel: String, CaseIterable {
 final class MenuBarPreferences {
     private(set) var enabled: Set<MenuBarPanel>
     private(set) var refreshIntervalMinutes: Int
+    private(set) var style: MenuBarStyle
     @ObservationIgnored private let defaults: UserDefaults
     private static let key = "enabledMenuBarPanels"
     private static let refreshKey = "refreshIntervalMinutes"
+    private static let styleKey = "menuBarStyle"
     static let refreshIntervals = [1, 2, 5, 10, 15, 30, 45, 60]
     private static let defaultPanels: Set<MenuBarPanel> = [.combined, .fiveHour]
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        style = defaults.string(forKey: Self.styleKey).flatMap(MenuBarStyle.init(rawValue:)) ?? .fullColor
         let savedInterval = defaults.object(forKey: Self.refreshKey) as? Int ?? 5
         refreshIntervalMinutes = Self.clampedInterval(savedInterval)
         if let saved = defaults.stringArray(forKey: Self.key) {
@@ -43,6 +54,11 @@ final class MenuBarPreferences {
         } else {
             enabled = Self.defaultPanels
         }
+    }
+
+    func setStyle(_ value: MenuBarStyle) {
+        style = value
+        defaults.set(value.rawValue, forKey: Self.styleKey)
     }
 
     func setRefreshIntervalMinutes(_ value: Int) {

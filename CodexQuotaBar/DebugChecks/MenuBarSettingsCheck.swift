@@ -9,6 +9,15 @@ enum MenuBarSettingsCheck {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let preferences = MenuBarPreferences(defaults: defaults)
+        try require(preferences.style == .fullColor, "Full color is the default style")
+        preferences.setStyle(.monochrome)
+        try require(MenuBarPreferences(defaults: defaults).style == .monochrome, "Monochrome style survives relaunch")
+        preferences.setStyle(.fullColor)
+        try require(MenuBarPreferences(defaults: defaults).style == .fullColor, "Full color can be restored")
+        defaults.set("unknown-style", forKey: "menuBarStyle")
+        try require(MenuBarPreferences(defaults: defaults).style == .fullColor, "Unknown style defaults to full color")
+        preferences.setStyle(.fullColor)
+        print("PASS: menu bar style defaults to full color and persists both choices")
         try require(preferences.refreshIntervalMinutes == 5, "Default refresh interval")
         preferences.setRefreshIntervalMinutes(0)
         try require(preferences.refreshIntervalMinutes == 1, "Fastest automatic refresh is once per minute")
@@ -154,6 +163,21 @@ enum MenuBarSettingsCheck {
         }
         try require(QuotaBadge.fiveHourUrgency(window: nil, now: now) == nil, "Unknown 5-hour quota has no warning")
         print("PASS: 5-hour colors scale weekly thresholds and honor the low-quota exemption and missing reset dates")
+
+        let coloredBadges = [
+            QuotaBadge.image(window: weekly, period: .weekly, now: now),
+            QuotaBadge.image(window: weekly, period: .fiveHour, now: now),
+            QuotaBadge.combinedImage(window: weekly, credits: credits, now: now),
+            QuotaBadge.resetExpirationImage(credits: credits, now: now)
+        ]
+        for colored in coloredBadges {
+            let monochrome = QuotaBadge.styled(colored, style: .monochrome)
+            try require(monochrome.isTemplate && !colored.isTemplate, "Monochrome removes tint without mutating the colored badge")
+            try require(monochrome.size == colored.size && monochrome.accessibilityDescription == colored.accessibilityDescription,
+                        "Style preserves badge layout and accessibility text")
+            try require(QuotaBadge.styled(colored, style: .fullColor) === colored, "Full color retains warning colors")
+        }
+        print("PASS: monochrome removes warning tint from all four panels while full color preserves it")
 
         guard let delegate = NSApp.delegate as? AppDelegate else {
             throw NSError(domain: "MenuBarSettingsCheck", code: 2)

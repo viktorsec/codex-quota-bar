@@ -34,7 +34,7 @@ final class MenuBarController {
                 case .fiveHour: image = model.fiveHourMenuBarImage
                 case .resetExpiration: image = model.resetExpirationMenuBarImage
                 }
-                item.button?.image = image
+                item.button?.image = QuotaBadge.styled(image, style: preferences.style)
                 item.button?.setAccessibilityLabel(image.accessibilityDescription)
                 Self.setVisible(preferences.isEnabled(panel), item: item)
             }

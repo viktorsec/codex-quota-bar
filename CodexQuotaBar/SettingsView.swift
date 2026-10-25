@@ -5,8 +5,30 @@ struct SettingsView: View {
     let model: QuotaModel
 
     var body: some View {
-        Form {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                menuBarSection
+                styleSection
+                refreshSection
+            }
+            .padding(20)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .frame(width: 600, height: 700)
+    }
+
+    private var menuBarSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Menu Bar")
+                    .fontWeight(.semibold)
+                Text("Choose which items appear in your menu bar. Previews are enlarged by 50%.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 10)
+
+            VStack(spacing: 0) {
                 ForEach(MenuBarPanel.allCases, id: \.self) { panel in
                     HStack(alignment: .center, spacing: 16) {
                         Toggle(panel.title, isOn: Binding(
@@ -36,60 +58,76 @@ struct SettingsView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                        Image(nsImage: image(for: panel))
-                            .renderingMode(image(for: panel).isTemplate ? .template : .original)
-                            .foregroundStyle(.primary)
-                            .frame(width: 84, height: 44)
-                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
-                            .accessibilityHidden(true)
+                        MenuBarItemPreview(image: image(for: panel), showsBothAppearances: false, scale: 1.5)
                     }
                     .frame(minHeight: 56)
                     .padding(.vertical, 8)
                     .padding(.horizontal, 4)
+                    if panel != MenuBarPanel.allCases.last {
+                        Divider()
+                    }
                 }
-            } header: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Menu Bar")
-                    Text("Choose which items appear in your menu bar.")
-                        .font(.callout)
-                        .fontWeight(.regular)
+            }
+            .padding(10)
+            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
+
+            Text("At least one item must stay on. Hold ⌘ and drag an item within menu bar to reorder.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+        }
+    }
+
+    private var styleSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Style")
+                .fontWeight(.semibold)
+                .padding(.horizontal, 10)
+            HStack(spacing: 12) {
+                ForEach(MenuBarStyle.allCases, id: \.self) { style in
+                    StyleOptionButton(style: style, isSelected: preferences.style == style) {
+                        preferences.setStyle(style)
+                    }
+                }
+            }
+            Text("Warmer colors mean less time to use what’s left.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+        }
+    }
+
+    private var refreshSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Refresh Interval")
+                .fontWeight(.semibold)
+                .padding(.horizontal, 10)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Fetch quota every")
+                    Spacer()
+                    Text(refreshIntervalText)
+                        .monospacedDigit()
                         .foregroundStyle(.secondary)
                 }
-            } footer: {
-                Text("At least one item must stay on. Hold ⌘ and drag an item within menu bar to reorder.")
-            }
-
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Fetch quota every")
-                        Spacer()
-                        Text(refreshIntervalText)
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    Slider(value: Binding(
-                        get: {
-                            Double(MenuBarPreferences.refreshIntervals.firstIndex(of: preferences.refreshIntervalMinutes) ?? 0)
-                        },
-                        set: { preferences.setRefreshIntervalMinutes(MenuBarPreferences.refreshIntervals[Int($0)]) }
-                    ), in: 0...Double(MenuBarPreferences.refreshIntervals.count - 1), step: 1) {
-                        Text("Refresh interval")
-                    } minimumValueLabel: {
-                        Text("1 min")
-                    } maximumValueLabel: {
-                        Text("1 hour")
-                    }
-                    .labelsHidden()
-                    .accessibilityValue("Every \(refreshIntervalText)")
+                Slider(value: Binding(
+                    get: {
+                        Double(MenuBarPreferences.refreshIntervals.firstIndex(of: preferences.refreshIntervalMinutes) ?? 0)
+                    },
+                    set: { preferences.setRefreshIntervalMinutes(MenuBarPreferences.refreshIntervals[Int($0)]) }
+                ), in: 0...Double(MenuBarPreferences.refreshIntervals.count - 1), step: 1) {
+                    Text("Refresh interval")
+                } minimumValueLabel: {
+                    Text("1 min")
+                } maximumValueLabel: {
+                    Text("1 hour")
                 }
-                .padding(.vertical, 4)
-            } header: {
-                Text("Refresh Interval")
+                .labelsHidden()
+                .accessibilityValue("Every \(refreshIntervalText)")
             }
+            .padding(14)
+            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
         }
-        .formStyle(.grouped)
-        .frame(width: 600, height: 700)
     }
 
     private var refreshIntervalText: String {
@@ -101,12 +139,13 @@ struct SettingsView: View {
     }
 
     private func image(for panel: MenuBarPanel) -> NSImage {
-        switch panel {
+        let image: NSImage = switch panel {
         case .combined: model.combinedMenuBarImage
         case .weekly: model.weeklyMenuBarImage
         case .fiveHour: model.fiveHourMenuBarImage
         case .resetExpiration: model.resetExpirationMenuBarImage
         }
+        return QuotaBadge.styled(image, style: preferences.style)
     }
 
     private func description(for panel: MenuBarPanel) -> String {
@@ -120,6 +159,60 @@ struct SettingsView: View {
         case .resetExpiration:
             "Time until your next banked reset expires."
         }
+    }
+}
+
+private struct StyleOptionButton: View {
+    let style: MenuBarStyle
+    let isSelected: Bool
+    let select: () -> Void
+    @State private var isHovered = false
+    @State private var previewStep = 0
+
+    // Frame zero is also the static preview, so hovering never changes it immediately.
+    // Vary only time at 80% quota, showing the actual weekly colors.
+    private static let frames: [(remaining: Int, days: Double)] = [
+        (80, 3), (80, 2), (80, 1), (80, 6), (80, 5), (80, 4)
+    ]
+
+    var body: some View {
+        Button(action: select) {
+            VStack(spacing: 10) {
+                MenuBarItemPreview(image: previewImage)
+                Text(style.title)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+            .contentShape(RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(isSelected ? Color.accentColor : .clear, lineWidth: 2)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(style.title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .onHover {
+            previewStep = 0
+            isHovered = $0
+        }
+        .task(id: isHovered) {
+            guard isHovered else { return }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(750)) }
+                catch { return }
+                previewStep = (previewStep + 1) % Self.frames.count
+            }
+        }
+    }
+
+    private var previewImage: NSImage {
+        let frame = Self.frames[isHovered ? previewStep : 0]
+        let now = Date.now
+        let window = QuotaWindow(id: "style-preview", title: "Weekly", usedPercent: Double(100 - frame.remaining),
+                                 resetsAt: now.addingTimeInterval(frame.days * 86_400), windowDurationMins: 10_080)
+        return QuotaBadge.styled(QuotaBadge.image(window: window, period: .weekly, now: now), style: style)
     }
 }
 

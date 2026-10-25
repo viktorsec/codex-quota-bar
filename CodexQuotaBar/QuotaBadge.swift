@@ -2,6 +2,15 @@ import AppKit
 import SwiftUI
 
 enum QuotaBadge {
+    static func styled(_ image: NSImage, style: MenuBarStyle) -> NSImage {
+        guard style == .monochrome, !image.isTemplate else { return image }
+        // Template rendering uses the badge's alpha mask and lets macOS choose
+        // the neutral foreground, including when the menu bar is highlighted.
+        let monochrome = image.copy() as! NSImage
+        monochrome.isTemplate = true
+        return monochrome
+    }
+
     enum Urgency: Int {
         case yellow, orange, red
 
