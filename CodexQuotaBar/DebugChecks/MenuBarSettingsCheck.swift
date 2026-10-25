@@ -74,6 +74,87 @@ enum MenuBarSettingsCheck {
         try require(QuotaBadge.combinedResetDate(window: nil, credits: nil, now: now) == nil, "No reset dates")
         print("PASS: combined countdown uses the earlier weekly reset or available credit expiration")
 
+        let warningCases: [(Double, QuotaBadge.Urgency?)] = [
+            (5 * 86_400 + 1, nil), (5 * 86_400, .yellow),
+            (4 * 86_400 + 1, .yellow), (4 * 86_400, .orange),
+            (60 * 3_600 + 1, .orange), (60 * 3_600, .red), (60, .red),
+            (0, nil), (-1, nil)
+        ]
+        for (seconds, expected) in warningCases {
+            try require(QuotaBadge.expirationUrgency(until: now.addingTimeInterval(seconds), now: now) == expected,
+                        "Banked reset urgency at \(seconds) seconds")
+        }
+        try require(QuotaBadge.expirationUrgency(until: nil, now: now) == nil, "Unknown expiration has no warning color")
+        try require(QuotaBadge.combinedUrgency(window: weekly, credits: credits, now: now) == .red, "Earlier banked expiration colors the combined countdown")
+        try require(QuotaBadge.combinedUrgency(window: weekly, credits: laterCredits, now: now) == .red, "Earlier weekly reset uses weekly urgency")
+        try require(!QuotaBadge.resetExpirationImage(credits: credits, now: now).isTemplate, "Urgent badges preserve their countdown color")
+        print("PASS: Banked reset colors honor the 5-day, 4-day, and 60-hour boundaries")
+
+        func weeklyWindow(remaining: Int, days: Double?) -> QuotaWindow {
+            QuotaWindow(id: "test.weekly", title: "Weekly", usedPercent: Double(100 - remaining),
+                        resetsAt: days.map { now.addingTimeInterval($0 * 86_400) }, windowDurationMins: 10_080)
+        }
+        let weeklyCases: [(Int, Double?, QuotaBadge.Urgency?)] = [
+            (100, 5, .yellow), (100, 4, .orange), (100, 2.5, .red), (100, 2, .red), (100, 1, .red),
+            (80, 5, nil), (40, 5, nil), (10, 5, nil),
+            (80, 4, .yellow), (80, 2, .red), (80, 1, .red),
+            (40, 4, nil), (40, 2, .yellow), (40, 1, .red),
+            (10, 4, nil), (10, 2, nil), (10, 1, nil), (10, 1 / 24.0, nil),
+            (0, 1 / 24.0, nil), (11, 1 / 24.0, .red),
+            (19, 1, nil), (20, 1, .yellow), (24, 1, .yellow),
+            (25, 1, .orange), (39, 1, .orange), (40, 1, .red),
+            (40, 0.5, .red), (100, 5 + 1 / 86_400.0, nil),
+            (80, 0, nil), (80, -1, nil), (80, nil, nil)
+        ]
+        for (remaining, days, expected) in weeklyCases {
+            try require(QuotaBadge.weeklyUrgency(window: weeklyWindow(remaining: remaining, days: days), now: now) == expected,
+                        "Weekly urgency with \(remaining)% and \(String(describing: days)) days left")
+        }
+        try require(QuotaBadge.weeklyUrgency(window: nil, now: now) == nil, "Unknown weekly quota has no warning color")
+        let neutralWeekly = weeklyWindow(remaining: 80, days: 5)
+        try require(QuotaBadge.combinedImage(window: neutralWeekly, credits: nil, now: now).isTemplate, "Uncolored badges retain native tinting")
+        try require(!QuotaBadge.image(window: weekly, period: .weekly, now: now).isTemplate, "Weekly percentage preserves its warning color")
+        try require(!QuotaBadge.image(window: weekly, period: .fiveHour, now: now).isTemplate, "5-hour quota preserves its warning color")
+        try require(!QuotaBadge.combinedImage(window: weekly, credits: laterCredits, now: now).isTemplate, "Combined badge preserves weekly color without a banked warning")
+        try require(QuotaBadge.weeklyUrgency(window: neutralWeekly, now: now) == nil &&
+                    QuotaBadge.combinedUrgency(window: neutralWeekly, credits: credits, now: now) == .red,
+                    "Earlier banked expiration does not accelerate weekly urgency")
+        try require(QuotaBadge.weeklyUrgency(window: weekly, now: now) == .red &&
+                    QuotaBadge.combinedUrgency(window: weekly, credits: credits, now: now) == .red,
+                    "Combined values can each have a warning color")
+        let orangeWeekly = weeklyWindow(remaining: 60, days: 2)
+        let yellowBanked = ResetCredits(availableCount: 1, credits: [
+            .init(id: "yellow", expiresAt: now.addingTimeInterval(5 * 86_400))
+        ])
+        try require(QuotaBadge.combinedUrgency(window: orangeWeekly, credits: credits, now: now) == .red,
+                    "Stronger banked warning colors both values")
+        try require(QuotaBadge.combinedUrgency(window: orangeWeekly, credits: yellowBanked, now: now) == .orange,
+                    "Stronger weekly warning colors both values")
+        try require(QuotaBadge.combinedUrgency(window: neutralWeekly, credits: nil, now: now) == nil,
+                    "Combined badge remains neutral without either warning")
+        print("PASS: weekly colors match the example table and both combined values use the strongest applicable warning")
+
+        let fiveHourCases: [(Int, Double?, QuotaBadge.Urgency?)] = [
+            (80, 3, nil), (80, 2, .orange), (80, 1, .red),
+            (40, 3, nil), (40, 2, nil), (40, 1, .orange),
+            (10, 3, nil), (10, 2, nil), (10, 1, nil), (10, 1 / 60.0, nil),
+            (0, 1 / 60.0, nil), (11, 1 / 60.0, .red),
+            (27, 1, nil), (28, 1, .yellow), (34, 1, .yellow),
+            (35, 1, .orange), (55, 1, .orange), (56, 1, .red),
+            (100, 3.5, .yellow), (100, 4, nil), (40, 0.5, .red),
+            (80, 0, nil), (80, -1, nil), (80, nil, nil)
+        ]
+        for (remaining, hours, expected) in fiveHourCases {
+            let window = QuotaWindow(id: "test.primary", title: "5-hour", usedPercent: Double(100 - remaining),
+                                     resetsAt: hours.map { now.addingTimeInterval($0 * 3_600) }, windowDurationMins: 300)
+            try require(QuotaBadge.fiveHourUrgency(window: window, now: now) == expected,
+                        "5-hour urgency with \(remaining)% and \(String(describing: hours)) hours left")
+            try require(QuotaBadge.image(window: window, period: .fiveHour, now: now).isTemplate == (expected == nil),
+                        "5-hour badge preserves warning colors and native tinting")
+        }
+        try require(QuotaBadge.fiveHourUrgency(window: nil, now: now) == nil, "Unknown 5-hour quota has no warning")
+        print("PASS: 5-hour colors scale weekly thresholds and honor the low-quota exemption and missing reset dates")
+
         guard let delegate = NSApp.delegate as? AppDelegate else {
             throw NSError(domain: "MenuBarSettingsCheck", code: 2)
         }
@@ -109,7 +190,7 @@ enum MenuBarSettingsCheck {
         guard let secret = NSApp.windows.first(where: { $0.title == "Secret Window" }) else {
             throw NSError(domain: "MenuBarSettingsCheck", code: 5)
         }
-        try await waitUntil({ secret.isKeyWindow }, message: "Secret Window did not become key")
+        try await waitUntil({ secret.isVisible }, message: "Secret Window did not open")
         guard let secretTitlebar = secret.titlebarAccessoryViewControllers.first?.view,
               let secretTitle = secretTitlebar.subviews.first(where: { $0.identifier?.rawValue == "secret-window-title" }) else {
             throw NSError(domain: "MenuBarSettingsCheck", code: 7)
@@ -151,17 +232,29 @@ enum MenuBarSettingsCheck {
         let newPercentage = delegate.model.simulation?.weeklyRemainingPercent
         outgoingSlider.wrappedValue = 67
         try require(delegate.model.simulation?.weeklyRemainingPercent == newPercentage, "Old bindings cannot change a new editing session")
+        let reopenedSession = delegate.model.simulation
+        delegate.model.simulation?.weeklyRemainingPercent = 23
+        secret.resignKey()
         delegate.showSettings()
-        try await waitUntil({ delegate.model.simulation == nil }, message: "Leaving Secret Window ends simulation")
+        secret.contentView?.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(100))
+        try require(delegate.model.simulation === reopenedSession && delegate.model.simulation?.weeklyRemainingPercent == 23,
+                    "Leaving Secret Window preserves the editing session and controls")
+        NSApp.deactivate()
+        try await Task.sleep(for: .milliseconds(100))
+        try require(delegate.model.simulation === reopenedSession &&
+                    delegate.model.weeklyMenuBarImage.accessibilityDescription?.contains("23% remaining") == true,
+                    "Switching apps preserves simulated menu bar values")
         secret.makeKeyAndOrderFront(nil)
-        try await waitUntil({ delegate.model.simulation != nil }, message: "Returning starts a fresh simulation")
+        try require(delegate.model.simulation === reopenedSession, "Returning reuses the same simulation")
         secret.close()
+        try require(delegate.model.simulation == nil, "Closing after focus loss ends simulation")
         window.close()
         print("PASS: secret window opens once and reopens after closing")
-        print("PASS: simulation updates previews without changing live data and resets on close or focus loss")
+        print("PASS: simulation survives window and app focus loss and resets only on close")
         for _ in 0..<3 {
             delegate.showSecretWindow()
-            try await waitUntil({ secret.isKeyWindow }, message: "Secret Window did not become key")
+            try await waitUntil({ secret.isVisible }, message: "Secret Window did not open")
             delegate.model.simulation?.bankedResets = [.init(expiresAt: .now.addingTimeInterval(3_600))]
             secret.contentView?.layoutSubtreeIfNeeded()
             try await Task.sleep(for: .milliseconds(50))

@@ -123,24 +123,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDel
         secretWindow?.window?.makeKeyAndOrderFront(nil)
     }
 
-    func windowDidBecomeKey(_ notification: Notification) {
-        if notification.object as? NSWindow === secretWindow?.window { model.beginSimulation() }
-    }
-
-    func windowDidResignKey(_ notification: Notification) {
-        if notification.object as? NSWindow === secretWindow?.window { model.endSimulation() }
-    }
-
     func windowWillClose(_ notification: Notification) {
         if notification.object as? NSWindow === secretWindow?.window { model.endSimulation() }
-    }
-
-    func applicationDidResignActive(_ notification: Notification) {
-        model.endSimulation()
-    }
-
-    func applicationDidBecomeActive(_ notification: Notification) {
-        if secretWindow?.window?.isKeyWindow == true { model.beginSimulation() }
     }
 
     private func configureMainMenu() {

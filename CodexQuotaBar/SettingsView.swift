@@ -37,7 +37,7 @@ struct SettingsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                         Image(nsImage: image(for: panel))
-                            .renderingMode(.template)
+                            .renderingMode(image(for: panel).isTemplate ? .template : .original)
                             .foregroundStyle(.primary)
                             .frame(width: 84, height: 44)
                             .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))

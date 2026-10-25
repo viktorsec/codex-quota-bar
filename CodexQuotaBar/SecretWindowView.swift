@@ -7,10 +7,6 @@ struct SecretWindowView: View {
         Group {
             if let values = model.simulation {
                 SimulationControls(values: values)
-            } else {
-                Text("Return to this window to simulate quota values.")
-                    .foregroundStyle(.secondary)
-                    .padding()
             }
         }
         .frame(width: 500, height: 640)
