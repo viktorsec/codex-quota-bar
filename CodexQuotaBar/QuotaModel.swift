@@ -27,6 +27,9 @@ final class QuotaModel {
     private(set) var fiveHourMenuBarImage = QuotaBadge.image(window: nil, period: .fiveHour, now: .now)
     private(set) var resetExpirationMenuBarImage = QuotaBadge.resetExpirationImage(credits: nil, now: .now)
     private(set) var combinedMenuBarImage = QuotaBadge.combinedImage(window: nil, credits: nil, now: .now)
+    var simulation: QuotaSimulation? {
+        didSet { updateMenuBarImages() }
+    }
     private var accountOperationID: UUID?
 
     @ObservationIgnored private let preferences: MenuBarPreferences
@@ -271,12 +274,31 @@ final class QuotaModel {
         updateMenuBarImages()
     }
 
+    func beginSimulation() {
+        guard simulation == nil else { return }
+        let values = QuotaSimulation(weekly: weeklyWindow, fiveHour: fiveHourWindow, credits: resetCredits)
+        values.onChange = { [weak self, weak values] in
+            guard let self, let values, self.simulation === values else { return }
+            self.updateMenuBarImages()
+        }
+        simulation = values
+    }
+
+    func endSimulation() {
+        guard simulation != nil else { return }
+        simulation?.onChange = nil
+        simulation = nil
+    }
+
     private func updateMenuBarImages() {
         let now = Date.now
-        weeklyMenuBarImage = QuotaBadge.image(window: weeklyWindow, period: .weekly, now: now)
-        fiveHourMenuBarImage = QuotaBadge.image(window: fiveHourWindow, period: .fiveHour, now: now)
-        resetExpirationMenuBarImage = QuotaBadge.resetExpirationImage(credits: resetCredits, now: now)
-        combinedMenuBarImage = QuotaBadge.combinedImage(window: weeklyWindow, credits: resetCredits, now: now)
+        let weekly = simulation?.weeklyWindow ?? weeklyWindow
+        let fiveHour = simulation?.fiveHourWindow ?? fiveHourWindow
+        let credits = simulation?.resetCredits ?? resetCredits
+        weeklyMenuBarImage = QuotaBadge.image(window: weekly, period: .weekly, now: now)
+        fiveHourMenuBarImage = QuotaBadge.image(window: fiveHour, period: .fiveHour, now: now)
+        resetExpirationMenuBarImage = QuotaBadge.resetExpirationImage(credits: credits, now: now)
+        combinedMenuBarImage = QuotaBadge.combinedImage(window: weekly, credits: credits, now: now)
     }
 
     private func clearLogin() {

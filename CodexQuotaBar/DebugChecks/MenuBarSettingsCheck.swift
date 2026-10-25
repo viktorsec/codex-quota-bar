@@ -1,9 +1,10 @@
 #if DEBUG
 import AppKit
+import SwiftUI
 
 @MainActor
 enum MenuBarSettingsCheck {
-    static func run() throws {
+    static func run() async throws {
         let suite = "CodexQuotaBar.SettingsCheck.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -88,6 +89,9 @@ enum MenuBarSettingsCheck {
         let titleCenter = title.convert(title.bounds, to: nil).midX
         try require(abs(titleCenter - window.frame.width / 2) < 1, "Settings title center \(titleCenter), window width \(window.frame.width), titlebar frame \(titlebar.frame), title frame \(title.frame)")
         print("PASS: Settings title is centered across the full window width")
+        try require(title.gestureRecognizers.contains {
+            ($0 as? NSClickGestureRecognizer)?.numberOfClicksRequired == 3
+        }, "Secret window gesture is attached to the Settings title")
         delegate.showSettings()
         try require(NSApp.windows.filter { $0.title == "Codex Quota Bar Settings" }.count == 1, "Settings reuses its window")
         window.close()
@@ -96,6 +100,86 @@ enum MenuBarSettingsCheck {
         try require(window.isVisible, "Settings reopens the existing window")
         window.close()
         print("PASS: Settings opens, reuses its window, and reopens after closing")
+
+        let originalWeekly = delegate.model.weeklyMenuBarImage.accessibilityDescription
+        let originalFiveHour = delegate.model.fiveHourMenuBarImage.accessibilityDescription
+        let originalCredits = delegate.model.resetExpirationMenuBarImage.accessibilityDescription
+        let liveWindowIDs = delegate.model.windows.map(\.id)
+        delegate.showSecretWindow()
+        guard let secret = NSApp.windows.first(where: { $0.title == "Secret Window" }) else {
+            throw NSError(domain: "MenuBarSettingsCheck", code: 5)
+        }
+        try await waitUntil({ secret.isKeyWindow }, message: "Secret Window did not become key")
+        guard let secretTitlebar = secret.titlebarAccessoryViewControllers.first?.view,
+              let secretTitle = secretTitlebar.subviews.first(where: { $0.identifier?.rawValue == "secret-window-title" }) else {
+            throw NSError(domain: "MenuBarSettingsCheck", code: 7)
+        }
+        secretTitlebar.layoutSubtreeIfNeeded()
+        try require(abs(secretTitle.convert(secretTitle.bounds, to: nil).midX - secret.frame.width / 2) < 1,
+                    "Secret Window title is centered across the full window width")
+        print("PASS: Secret Window title is centered across the full window width")
+        delegate.showSecretWindow()
+        try require(NSApp.windows.filter { $0.title == "Secret Window" }.count == 1, "Secret window is reused")
+        guard let editingSession = delegate.model.simulation else {
+            throw NSError(domain: "MenuBarSettingsCheck", code: 6)
+        }
+        @Bindable var editing = editingSession
+        let outgoingSlider = $editing.weeklyRemainingPercent
+        delegate.model.simulation?.weeklyRemainingPercent = 9
+        delegate.model.simulation?.fiveHourRemainingPercent = 4
+        delegate.model.simulation?.bankedResets = []
+        try require(delegate.model.weeklyMenuBarImage.accessibilityDescription?.contains("9% remaining") == true, "Weekly preview updates immediately")
+        try require(delegate.model.fiveHourMenuBarImage.accessibilityDescription?.contains("4% remaining") == true, "5-hour preview updates immediately")
+        try require(delegate.model.resetExpirationMenuBarImage.accessibilityDescription == "No banked resets left", "Banked reset preview updates immediately")
+        try require(delegate.model.windows.map(\.id) == liveWindowIDs, "Simulation preserves live quota data")
+        secret.close()
+        try require(delegate.model.simulation == nil, "Closing Secret Window ends simulation")
+        // Let the outgoing SwiftUI graph run its layout and binding updates
+        // before reopening. The optional binding previously trapped here.
+        secret.contentView?.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(100))
+        try require(outgoingSlider.wrappedValue == 9, "Outgoing slider remains safe after closing")
+        outgoingSlider.wrappedValue = 88
+        try require(delegate.model.simulation == nil, "Late control updates cannot restart simulation")
+        try require(delegate.model.weeklyMenuBarImage.accessibilityDescription == originalWeekly &&
+                    delegate.model.fiveHourMenuBarImage.accessibilityDescription == originalFiveHour &&
+                    delegate.model.resetExpirationMenuBarImage.accessibilityDescription == originalCredits,
+                    "Closing restores live menu bar values")
+        delegate.showSecretWindow()
+        try require(secret.isVisible, "Secret window reopens")
+        try require(delegate.model.simulation?.weeklyRemainingPercent != 9, "Reopening discards previous edits")
+        let newPercentage = delegate.model.simulation?.weeklyRemainingPercent
+        outgoingSlider.wrappedValue = 67
+        try require(delegate.model.simulation?.weeklyRemainingPercent == newPercentage, "Old bindings cannot change a new editing session")
+        delegate.showSettings()
+        try await waitUntil({ delegate.model.simulation == nil }, message: "Leaving Secret Window ends simulation")
+        secret.makeKeyAndOrderFront(nil)
+        try await waitUntil({ delegate.model.simulation != nil }, message: "Returning starts a fresh simulation")
+        secret.close()
+        window.close()
+        print("PASS: secret window opens once and reopens after closing")
+        print("PASS: simulation updates previews without changing live data and resets on close or focus loss")
+        for _ in 0..<3 {
+            delegate.showSecretWindow()
+            try await waitUntil({ secret.isKeyWindow }, message: "Secret Window did not become key")
+            delegate.model.simulation?.bankedResets = [.init(expiresAt: .now.addingTimeInterval(3_600))]
+            secret.contentView?.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(50))
+            delegate.model.simulation?.bankedResets.removeAll()
+            secret.close()
+            secret.contentView?.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(100))
+            try require(delegate.model.simulation == nil, "Repeated close clears simulation safely")
+        }
+        print("PASS: closing, delayed slider updates, and removing banked reset rows stay safe across repeated sessions")
+    }
+
+    private static func waitUntil(_ condition: () -> Bool, message: String) async throws {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !condition() {
+            try require(ContinuousClock.now < deadline, message)
+            try await Task.sleep(for: .milliseconds(25))
+        }
     }
 
     private static func require(_ condition: Bool, _ message: String) throws {

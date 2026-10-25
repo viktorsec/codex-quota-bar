@@ -11,7 +11,7 @@ enum HelperSmokeCheck {
         let session = AuthenticationSession()
         do {
             if ProcessInfo.processInfo.arguments.contains("--check-menu-bar-settings") {
-                try MenuBarSettingsCheck.run()
+                try await MenuBarSettingsCheck.run()
                 fflush(stdout)
                 exit(0)
             }

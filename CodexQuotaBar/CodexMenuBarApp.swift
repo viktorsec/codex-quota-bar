@@ -3,11 +3,12 @@ import AppKit
 
 @main
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate, NSWindowDelegate {
     let preferences = MenuBarPreferences()
     private(set) lazy var model = QuotaModel(preferences: preferences)
     private var menuBar: MenuBarController?
     private var settingsWindow: NSWindowController?
+    private var secretWindow: NSWindowController?
 
     static func main() {
         let app = NSApplication.shared
@@ -41,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let window = NSWindow(contentViewController: hosting)
             window.title = "Codex Quota Bar Settings"
             window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
-            configureSettingsTitlebar(window)
+            configureCenteredTitlebar(window, opensSecretWindow: true)
             window.isReleasedWhenClosed = false
             // Resolve the hosted view's size before choosing a screen position.
             // Otherwise its first layout can resize an already-centered window.
@@ -61,17 +62,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
-    private func configureSettingsTitlebar(_ window: NSWindow) {
+    private func configureCenteredTitlebar(_ window: NSWindow, opensSecretWindow: Bool = false) {
         window.titleVisibility = .hidden
         let accessory = NSTitlebarAccessoryViewController()
         accessory.layoutAttribute = .top
         accessory.view = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 40))
 
         let title = NSTextField(labelWithString: window.title)
-        title.identifier = NSUserInterfaceItemIdentifier("settings-window-title")
+        title.identifier = NSUserInterfaceItemIdentifier(opensSecretWindow ? "settings-window-title" : "secret-window-title")
         title.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
         title.alignment = .center
         title.translatesAutoresizingMaskIntoConstraints = false
+        if opensSecretWindow {
+            let secretClick = NSClickGestureRecognizer(target: self, action: #selector(handleSecretTitleClick(_:)))
+            secretClick.numberOfClicksRequired = 3
+            secretClick.delegate = self
+            secretClick.delaysPrimaryMouseButtonEvents = true
+            title.addGestureRecognizer(secretClick)
+        }
         accessory.view.addSubview(title)
         window.addTitlebarAccessoryViewController(accessory)
         NSLayoutConstraint.activate([
@@ -83,6 +91,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Center against the full content width, not the accessory's width.
             title.centerXAnchor.constraint(equalTo: content.centerXAnchor).isActive = true
         }
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: NSGestureRecognizer, shouldAttemptToRecognizeWith event: NSEvent) -> Bool {
+        event.modifierFlags.contains(.option)
+    }
+
+    @objc private func handleSecretTitleClick(_ recognizer: NSClickGestureRecognizer) {
+        guard NSApp.currentEvent?.modifierFlags.contains(.option) == true else { return }
+        showSecretWindow()
+    }
+
+    func showSecretWindow() {
+        model.beginSimulation()
+        if secretWindow == nil {
+            let hosting = NSHostingController(rootView: SecretWindowView(model: model))
+            let window = NSWindow(contentViewController: hosting)
+            window.title = "Secret Window"
+            window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
+            configureCenteredTitlebar(window)
+            window.isReleasedWhenClosed = false
+            window.delegate = self
+            hosting.view.layoutSubtreeIfNeeded()
+            window.setContentSize(hosting.view.fittingSize)
+            window.center()
+            let controller = NSWindowController(window: window)
+            controller.shouldCascadeWindows = false
+            secretWindow = controller
+        }
+        secretWindow?.showWindow(nil)
+        secretWindow?.window?.makeKeyAndOrderFront(nil)
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        if notification.object as? NSWindow === secretWindow?.window { model.beginSimulation() }
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        if notification.object as? NSWindow === secretWindow?.window { model.endSimulation() }
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        if notification.object as? NSWindow === secretWindow?.window { model.endSimulation() }
+    }
+
+    func applicationDidResignActive(_ notification: Notification) {
+        model.endSimulation()
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        if secretWindow?.window?.isKeyWindow == true { model.beginSimulation() }
     }
 
     private func configureMainMenu() {
