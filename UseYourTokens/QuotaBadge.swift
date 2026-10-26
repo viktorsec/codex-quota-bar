@@ -39,15 +39,6 @@ enum QuotaBadge {
         quotaUrgency(remainingPercent: 100, until: expiration, now: now)
     }
 
-    static func combinedUrgency(window: QuotaWindow?, credits: ResetCredits?, now: Date) -> Urgency? {
-        let next = combinedResetDate(window: window, credits: credits, now: now)
-        let expiration = credits?.nextExpiration(after: now)
-        let bankedUrgency = next == expiration ? expirationUrgency(until: expiration, now: now) : nil
-        // Both values share the strongest applicable warning; the icon stays neutral.
-        return [weeklyUrgency(window: window, now: now), bankedUrgency]
-            .compactMap { $0 }.max { $0.rawValue < $1.rawValue }
-    }
-
     static func weeklyUrgency(window: QuotaWindow?, now: Date) -> Urgency? {
         guard let window, window.remainingPercent > 10 else { return nil }
         return quotaUrgency(remainingPercent: window.remainingPercent, until: window.resetsAt, now: now)
@@ -123,64 +114,93 @@ enum QuotaBadge {
         return "\(Int(ceil(seconds / 60)))m"
     }
 
-    static func combinedResetDate(window: QuotaWindow?, credits: ResetCredits?, now: Date) -> Date? {
-        [window?.resetsAt, credits?.nextExpiration(after: now)].compactMap { $0 }.min()
-    }
-
     static func combinedImage(window: QuotaWindow?, credits: ResetCredits?, now: Date) -> NSImage {
-        let next = combinedResetDate(window: window, credits: credits, now: now)
+        let expiration = credits?.nextExpiration(after: now)
         let percentage = window.map { "\($0.remainingPercent)%" } ?? "—%"
         let image = badge(
             topText: percentage,
-            bottomText: countdown(until: next, period: .weekly, now: now),
+            bottomText: countdown(until: window?.resetsAt, period: .weekly, now: now),
             icon: .combined,
-            urgency: combinedUrgency(window: window, credits: credits, now: now)
+            urgency: weeklyUrgency(window: window, now: now),
+            bankedText: credits?.availableCount == 0 ? nil
+                : countdown(until: expiration, period: .weekly, now: now),
+            bankedUrgency: expirationUrgency(until: expiration, now: now)
         )
         let quota = window.map { "Weekly quota: \($0.remainingPercent)% remaining." } ?? "Weekly quota unavailable."
-        if let next {
-            let event = next == window?.resetsAt ? "Weekly reset" : "Banked reset expiration"
-            image.accessibilityDescription = "\(quota) \(event): \(next.formatted(date: .abbreviated, time: .shortened))."
-        } else {
-            image.accessibilityDescription = "\(quota) Weekly reset and banked reset expiration unavailable."
-        }
+        let weeklyDescription = window?.resetsAt.map {
+            "Weekly reset: \($0.formatted(date: .abbreviated, time: .shortened))."
+        } ?? "Weekly reset unavailable."
+        let bankedDescription = expiration.map {
+            "Banked reset expiration: \($0.formatted(date: .abbreviated, time: .shortened))."
+        } ?? (credits?.availableCount == 0 ? "No banked resets left." : "Banked reset expiration unavailable.")
+        image.accessibilityDescription = "\(quota) \(weeklyDescription) \(bankedDescription)"
         return image
     }
 
     static func resetExpirationImage(credits: ResetCredits?, now: Date) -> NSImage {
         let next = credits?.nextExpiration(after: now)
-        let top: String
-        let bottom: String
+        let value: String
         let description: String
         if let next {
-            top = "Banked"
-            bottom = countdown(until: next, period: .weekly, now: now)
+            value = countdown(until: next, period: .weekly, now: now)
             description = "Next banked reset expires \(next.formatted(date: .abbreviated, time: .shortened))"
         } else if credits?.availableCount == 0 {
-            top = "No banked"
-            bottom = "resets"
+            value = "0"
             description = "No banked resets left"
         } else {
-            top = "Banked"
-            bottom = "—"
+            value = "—"
             description = "Banked reset expiration unavailable"
         }
-        let image = badge(topText: top, bottomText: bottom, icon: .banked,
+        let image = badge(topText: nil, bottomText: value, icon: .banked,
                           urgency: expirationUrgency(until: next, now: now))
         image.accessibilityDescription = description
         return image
     }
 
-    /// Normal badges use templates; urgent badges color both values together.
-    private static func badge(topText: String, bottomText: String, icon: Icon,
-                              urgency: Urgency? = nil) -> NSImage {
-        let hasColor = urgency != nil
-        let font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
+    /// Combined badges color the weekly values and banked countdown independently.
+    private static func badge(topText: String?, bottomText: String, icon: Icon,
+                              urgency: Urgency? = nil, bankedText: String? = nil,
+                              bankedUrgency: Urgency? = nil) -> NSImage {
+        // The combined badge needs explicit colors even without warnings so its divider stays gray.
+        let usesExplicitColors = urgency != nil || bankedText != nil
+        let font = topText == nil
+            ? NSFont.menuBarFont(ofSize: 0)
+            : NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: font, .foregroundColor: urgency?.color ?? NSColor.black
+            .font: font, .foregroundColor: urgency?.color ?? (usesExplicitColors ? NSColor.labelColor : .black)
         ]
-        let top = NSAttributedString(string: topText, attributes: attributes)
-        let bottom = NSAttributedString(string: bottomText, attributes: attributes)
-        let textWidth = ceil(max(top.size().width, bottom.size().width))
+        let top = topText.map { NSAttributedString(string: $0, attributes: attributes) }
+        let bottom = NSMutableAttributedString(string: bottomText, attributes: attributes)
+        if let bankedText {
+            let neutral = usesExplicitColors ? NSColor.labelColor : .black
+            // A plain ticket silhouette stays legible at countdown size.
+            let sourceCoupon = NSImage(resource: .menuBarCoupon)
+            let coupon = NSImage(size: NSSize(width: 8, height: 6), flipped: false) { bounds in
+                sourceCoupon.draw(in: bounds)
+                neutral.setFill()
+                bounds.fill(using: .sourceAtop)
+                return true
+            }
+            if usesExplicitColors { coupon.cacheMode = .never }
+            let attachment = NSTextAttachment()
+            attachment.image = coupon
+            // Align the silhouette to the visible digit height above the text baseline.
+            attachment.bounds = NSRect(x: 0, y: (font.capHeight - coupon.size.height) / 2,
+                                       width: coupon.size.width, height: coupon.size.height)
+            bottom.append(NSAttributedString(string: "\u{2009}|\u{2009}", attributes: [
+                .font: font, .foregroundColor: NSColor.systemGray.withAlphaComponent(0.7)
+            ]))
+            let couponText = NSMutableAttributedString(attachment: attachment)
+            couponText.addAttribute(.font, value: font, range: NSRange(location: 0, length: couponText.length))
+            bottom.append(couponText)
+            bottom.append(NSAttributedString(string: "\u{2009}", attributes: [
+                .font: font, .foregroundColor: neutral
+            ]))
+            bottom.append(NSAttributedString(string: bankedText, attributes: [
+                .font: font, .foregroundColor: bankedUrgency?.color ?? neutral
+            ]))
+        }
+        let textWidth = ceil(max(top?.size().width ?? 0, bottom.size().width))
         // The SVGs include internal padding; a larger canvas gives the glyphs
         // a readable weight beside the two lines of quota values.
         let iconSize: CGFloat = 18
@@ -190,20 +210,23 @@ enum QuotaBadge {
         // Tint the vector artwork separately so warnings color only the values.
         let neutralIcon = NSImage(size: sourceIcon.size, flipped: false) { bounds in
             sourceIcon.draw(in: bounds)
-            (hasColor ? NSColor.labelColor : .black).setFill()
+            (usesExplicitColors ? NSColor.labelColor : .black).setFill()
             bounds.fill(using: .sourceAtop)
             return true
         }
-        if hasColor { neutralIcon.cacheMode = .never }
+        if usesExplicitColors { neutralIcon.cacheMode = .never }
         let image = NSImage(size: size, flipped: false) { _ in
             neutralIcon.draw(in: NSRect(x: 0, y: (size.height - iconSize) / 2,
                                        width: iconSize, height: iconSize))
-            top.draw(at: NSPoint(x: textOriginX + (textWidth - top.size().width) / 2, y: 10))
-            bottom.draw(at: NSPoint(x: textOriginX + (textWidth - bottom.size().width) / 2, y: 0))
+            if let top {
+                top.draw(at: NSPoint(x: textOriginX + (textWidth - top.size().width) / 2, y: 10))
+            }
+            let bottomY = top == nil ? (size.height - bottom.size().height) / 2 : 0
+            bottom.draw(at: NSPoint(x: textOriginX + (textWidth - bottom.size().width) / 2, y: bottomY))
             return true
         }
-        image.isTemplate = !hasColor
-        if hasColor { image.cacheMode = .never }
+        image.isTemplate = !usesExplicitColors
+        if usesExplicitColors { image.cacheMode = .never }
         return image
     }
 }

@@ -76,12 +76,18 @@ enum MenuBarSettingsCheck {
         let laterCredits = ResetCredits(availableCount: 1, credits: [
             .init(id: "later", expiresAt: now.addingTimeInterval(240))
         ])
-        try require(QuotaBadge.combinedResetDate(window: weekly, credits: credits, now: now) == now.addingTimeInterval(60), "Expiration before weekly reset")
-        try require(QuotaBadge.combinedResetDate(window: weekly, credits: laterCredits, now: now) == weekly.resetsAt, "Weekly reset before expiration")
-        try require(QuotaBadge.combinedResetDate(window: weekly, credits: nil, now: now) == weekly.resetsAt, "Weekly reset without credits")
-        try require(QuotaBadge.combinedResetDate(window: nil, credits: credits, now: now) == now.addingTimeInterval(60), "Expiration without weekly data")
-        try require(QuotaBadge.combinedResetDate(window: nil, credits: nil, now: now) == nil, "No reset dates")
-        print("PASS: combined countdown uses the earlier weekly reset or available credit expiration")
+        let combined = QuotaBadge.combinedImage(window: weekly, credits: credits, now: now)
+        try require(combined.accessibilityDescription?.contains("Weekly reset:") == true &&
+                    combined.accessibilityDescription?.contains("Banked reset expiration:") == true,
+                    "Combined badge describes both deadlines")
+        try require(combined.size.width > QuotaBadge.image(window: weekly, period: .weekly, now: now).size.width,
+                    "Combined badge makes room for side-by-side countdowns")
+        let noBanked = QuotaBadge.combinedImage(window: weekly, credits: ResetCredits(availableCount: 0, credits: []), now: now)
+        try require(noBanked.accessibilityDescription?.contains("No banked resets left.") == true,
+                    "Combined badge distinguishes no banked resets from unavailable data")
+        try require(noBanked.size == QuotaBadge.image(window: weekly, period: .weekly, now: now).size,
+                    "Zero banked resets removes the divider, coupon, and countdown without leaving extra space")
+        print("PASS: combined badge includes both deadlines and handles missing banked resets")
 
         let warningCases: [(Double, QuotaBadge.Urgency?)] = [
             (5 * 86_400 + 1, nil), (5 * 86_400, .yellow),
@@ -94,8 +100,6 @@ enum MenuBarSettingsCheck {
                         "Banked reset urgency at \(seconds) seconds")
         }
         try require(QuotaBadge.expirationUrgency(until: nil, now: now) == nil, "Unknown expiration has no warning color")
-        try require(QuotaBadge.combinedUrgency(window: weekly, credits: credits, now: now) == .red, "Earlier banked expiration colors the combined countdown")
-        try require(QuotaBadge.combinedUrgency(window: weekly, credits: laterCredits, now: now) == .red, "Earlier weekly reset uses weekly urgency")
         try require(!QuotaBadge.resetExpirationImage(credits: credits, now: now).isTemplate, "Urgent badges preserve their countdown color")
         print("PASS: Banked reset colors honor the 5-day, 4-day, and 60-hour boundaries")
 
@@ -121,27 +125,45 @@ enum MenuBarSettingsCheck {
         }
         try require(QuotaBadge.weeklyUrgency(window: nil, now: now) == nil, "Unknown weekly quota has no warning color")
         let neutralWeekly = weeklyWindow(remaining: 80, days: 5)
-        try require(QuotaBadge.combinedImage(window: neutralWeekly, credits: nil, now: now).isTemplate, "Uncolored badges retain native tinting")
+        try require(!QuotaBadge.combinedImage(window: neutralWeekly, credits: nil, now: now).isTemplate, "Combined badge preserves its gray divider even without warnings")
         try require(!QuotaBadge.image(window: weekly, period: .weekly, now: now).isTemplate, "Weekly percentage preserves its warning color")
         try require(!QuotaBadge.image(window: weekly, period: .fiveHour, now: now).isTemplate, "5-hour quota preserves its warning color")
         try require(!QuotaBadge.combinedImage(window: weekly, credits: laterCredits, now: now).isTemplate, "Combined badge preserves weekly color without a banked warning")
-        try require(QuotaBadge.weeklyUrgency(window: neutralWeekly, now: now) == nil &&
-                    QuotaBadge.combinedUrgency(window: neutralWeekly, credits: credits, now: now) == .red,
-                    "Earlier banked expiration does not accelerate weekly urgency")
-        try require(QuotaBadge.weeklyUrgency(window: weekly, now: now) == .red &&
-                    QuotaBadge.combinedUrgency(window: weekly, credits: credits, now: now) == .red,
-                    "Combined values can each have a warning color")
         let orangeWeekly = weeklyWindow(remaining: 60, days: 2)
         let yellowBanked = ResetCredits(availableCount: 1, credits: [
             .init(id: "yellow", expiresAt: now.addingTimeInterval(5 * 86_400))
         ])
-        try require(QuotaBadge.combinedUrgency(window: orangeWeekly, credits: credits, now: now) == .red,
-                    "Stronger banked warning colors both values")
-        try require(QuotaBadge.combinedUrgency(window: orangeWeekly, credits: yellowBanked, now: now) == .orange,
-                    "Stronger weekly warning colors both values")
-        try require(QuotaBadge.combinedUrgency(window: neutralWeekly, credits: nil, now: now) == nil,
-                    "Combined badge remains neutral without either warning")
-        print("PASS: weekly colors match the example table and both combined values use the strongest applicable warning")
+        // Inspect the rendered output so a shared-color regression cannot pass.
+        for appearanceName in [NSAppearance.Name.aqua, .darkAqua] {
+            var hasOrange = false
+            var hasYellow = false
+            NSAppearance(named: appearanceName)!.performAsCurrentDrawingAppearance {
+                let image = QuotaBadge.combinedImage(window: orangeWeekly, credits: yellowBanked, now: now)
+                let enlarged = NSImage(size: NSSize(width: image.size.width * 4, height: image.size.height * 4), flipped: false) { bounds in
+                    image.draw(in: bounds)
+                    return true
+                }
+                let bitmap = NSBitmapImageRep(data: enlarged.tiffRepresentation!)!
+                for y in 0..<bitmap.pixelsHigh {
+                    for x in 0..<bitmap.pixelsWide {
+                        guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB),
+                              color.alphaComponent > 0.5 else { continue }
+                        func matches(_ urgency: QuotaBadge.Urgency) -> Bool {
+                            let expected = urgency.color.usingColorSpace(.sRGB)!
+                            // Rasterization can change brightness through color profiles.
+                            return color.saturationComponent > 0.7 && color.brightnessComponent > 0.2 &&
+                                abs(color.hueComponent - expected.hueComponent) < 0.02
+                        }
+                        hasOrange = hasOrange || matches(.orange)
+                        hasYellow = hasYellow || matches(.yellow)
+                    }
+                }
+            }
+            try require(hasOrange && hasYellow, "Combined badge renders independent weekly and banked colors in \(appearanceName)")
+        }
+        try require(!QuotaBadge.combinedImage(window: neutralWeekly, credits: credits, now: now).isTemplate,
+                    "Banked warnings remain visible with a neutral weekly quota")
+        print("PASS: weekly thresholds and independent combined colors work in light and dark appearances")
 
         let fiveHourCases: [(Int, Double?, QuotaBadge.Urgency?)] = [
             (80, 3, nil), (80, 2, .orange), (80, 1, .red),
@@ -182,10 +204,42 @@ enum MenuBarSettingsCheck {
         guard let delegate = NSApp.delegate as? AppDelegate else {
             throw NSError(domain: "MenuBarSettingsCheck", code: 2)
         }
+        // Debug checks skip normal app startup, which installs the main menu.
+        // Give the previews the same public menu-bar metrics as a normal launch.
+        let originalMainMenu = NSApp.mainMenu
+        if originalMainMenu == nil { NSApp.mainMenu = NSMenu(title: "Menu Bar Preview Check") }
+        defer { NSApp.mainMenu = originalMainMenu }
+        let nativePreviewItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        defer { NSStatusBar.system.removeStatusItem(nativePreviewItem) }
+        nativePreviewItem.button?.image = combined
         delegate.showSettings()
         guard let window = NSApp.windows.first(where: { $0.title == "Use Your Tokens Settings" }) else {
             throw NSError(domain: "MenuBarSettingsCheck", code: 3)
         }
+        func previewImages(in view: NSView) -> [NSImageView] {
+            if let image = view as? NSImageView, image.identifier?.rawValue == "menu-bar-preview-image" {
+                return [image]
+            }
+            return view.subviews.flatMap { previewImages(in: $0) }
+        }
+        try await waitUntil({ previewImages(in: window.contentView!).count == 6 },
+                            message: "All item and style previews did not appear")
+        try await waitUntil({ nativePreviewItem.button?.window?.frame.height == NSApp.mainMenu?.menuBarHeight },
+                            message: "Native status item did not finish layout")
+        window.contentView?.layoutSubtreeIfNeeded()
+        let nativeButton = nativePreviewItem.button!
+        let nativeImageRect = nativeButton.convert(nativeButton.cell!.imageRect(forBounds: nativeButton.bounds), to: nil)
+        let nativeHeight = nativeButton.window!.frame.height
+        for preview in previewImages(in: window.contentView!) {
+            let strip = preview.superview!
+            try require(preview.imageScaling == .scaleNone && preview.frame.size == preview.image!.size,
+                        "Settings preview displays the exact badge image at native size")
+            try require(abs(strip.bounds.height - nativeHeight) < 0.01 &&
+                        abs(preview.frame.minY - nativeImageRect.minY) < 0.01 &&
+                        abs(strip.bounds.height - preview.frame.maxY - (nativeHeight - nativeImageRect.maxY)) < 0.01,
+                        "Settings preview matches native padding: strip \(strip.bounds), image \(preview.frame), native height \(nativeHeight), native image \(nativeImageRect)")
+        }
+        print("PASS: all six Settings previews match native image size and menu bar vertical padding")
         guard let titlebar = window.titlebarAccessoryViewControllers.first?.view,
               let title = titlebar.subviews.first(where: { $0.identifier?.rawValue == "settings-window-title" }) else {
             throw NSError(domain: "MenuBarSettingsCheck", code: 4)

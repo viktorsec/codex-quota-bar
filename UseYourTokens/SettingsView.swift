@@ -63,7 +63,7 @@ struct SettingsView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                        MenuBarItemPreview(image: image(for: panel), showsBothAppearances: false, scale: 1.5)
+                        MenuBarItemPreview(image: image(for: panel), showsBothAppearances: false)
                     }
                     .frame(minHeight: 56)
                     .padding(.vertical, 8)
@@ -228,7 +228,7 @@ struct SettingsView: View {
     private func description(for panel: MenuBarPanel) -> String {
         switch panel {
         case .combined:
-            "Weekly quota remaining, with time until the weekly reset or a banked reset expires—whichever comes first."
+            "Weekly quota remaining, with weekly reset time on the left and banked reset expiration beside the coupon icon. Each uses its own warning color."
         case .weekly:
             "Weekly quota remaining, with time until the weekly reset."
         case .fiveHour:
@@ -254,12 +254,12 @@ private struct StyleOptionButton: View {
 
     var body: some View {
         Button(action: select) {
-            VStack(spacing: 10) {
-                MenuBarItemPreview(image: previewImage)
+            VStack(spacing: 16) {
+                MenuBarItemPreview(image: previewImage, showsBothAppearances: false)
                 Text(style.title)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .padding(.vertical, 20)
             .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
             .contentShape(RoundedRectangle(cornerRadius: 8))
             .overlay {

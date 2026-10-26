@@ -1,12 +1,18 @@
 import AppKit
 import SwiftUI
 
-/// Cropped menu bars using AppKit's template rendering, with optional magnification.
+/// Actual-size menu bar crops, including the native bar's vertical padding.
 struct MenuBarItemPreview: View {
     @Environment(\.colorScheme) private var colorScheme
+    @State private var menuBarHeight = currentMenuBarHeight
     let image: NSImage
     var showsBothAppearances = true
-    var scale: CGFloat = 1
+
+    private static var currentMenuBarHeight: CGFloat {
+        // Status-bar thickness describes the 22-point button, not the full bar
+        // on displays with a camera housing (33 points on the built-in display).
+        max(NSStatusBar.system.thickness, NSApp.mainMenu?.menuBarHeight ?? 0)
+    }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -17,14 +23,23 @@ struct MenuBarItemPreview: View {
                 strip(colorScheme)
             }
         }
-        .frame(width: max(108, image.size.width * scale + 24))
+        // Keep the preview's layout bounds equal to its visible strips so the
+        // Settings row centers the strips, rather than an expandable VStack.
+        .frame(width: 108, height: showsBothAppearances ? menuBarHeight * 2 + 6 : menuBarHeight,
+               alignment: .center)
         .accessibilityHidden(true)
         .allowsHitTesting(false)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
+            menuBarHeight = Self.currentMenuBarHeight
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            menuBarHeight = Self.currentMenuBarHeight
+        }
     }
 
     private func strip(_ colorScheme: ColorScheme) -> some View {
-        MenuBarPreviewStrip(image: image, scale: scale)
-            .frame(height: max(image.size.height, NSStatusBar.system.thickness) * scale)
+        MenuBarPreviewStrip(image: image)
+            .frame(width: 108, height: menuBarHeight)
             .background(Color(nsColor: .windowBackgroundColor))
             .clipShape(RoundedRectangle(cornerRadius: 4))
             .overlay {
@@ -37,7 +52,6 @@ struct MenuBarItemPreview: View {
 
 private struct MenuBarPreviewStrip: NSViewRepresentable {
     let image: NSImage
-    let scale: CGFloat
 
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
@@ -48,7 +62,13 @@ private struct MenuBarPreviewStrip: NSViewRepresentable {
         view.state = .active
 
         let imageView = PreviewImageView()
-        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.identifier = NSUserInterfaceItemIdentifier("menu-bar-preview-image")
+        imageView.imageScaling = .scaleNone
+        imageView.imageAlignment = .alignCenter
+        imageView.setContentHuggingPriority(.required, for: .horizontal)
+        imageView.setContentHuggingPriority(.required, for: .vertical)
+        imageView.setContentCompressionResistancePriority(.required, for: .horizontal)
+        imageView.setContentCompressionResistancePriority(.required, for: .vertical)
         imageView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(imageView)
         NSLayoutConstraint.activate([
@@ -67,17 +87,14 @@ private struct MenuBarPreviewStrip: NSViewRepresentable {
         view.appearance = NSAppearance(named: appearance)
         guard let imageView = view.subviews.first as? PreviewImageView else { return }
         imageView.image = image
-        imageView.previewScale = scale
         imageView.invalidateIntrinsicContentSize()
         imageView.contentTintColor = image.isTemplate ? .labelColor : nil
     }
 }
 
 private final class PreviewImageView: NSImageView {
-    var previewScale: CGFloat = 1
-
     override var intrinsicContentSize: NSSize {
         guard let image else { return super.intrinsicContentSize }
-        return NSSize(width: image.size.width * previewScale, height: image.size.height * previewScale)
+        return image.size
     }
 }
