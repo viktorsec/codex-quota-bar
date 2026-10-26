@@ -82,13 +82,26 @@ enum QuotaBadge {
         case weekly, fiveHour
 
         var title: String { self == .weekly ? "Weekly" : "5-hour" }
-        var symbol: String { self == .weekly ? "gauge.medium" : "clock" }
+    }
+
+    private enum Icon {
+        case combined, fiveHour, weekly, banked
+
+        var image: NSImage {
+            switch self {
+            case .combined: NSImage(resource: .menuBarCombined)
+            case .fiveHour: NSImage(resource: .menuBarFiveHour)
+            case .weekly: NSImage(resource: .menuBarWeekly)
+            case .banked: NSImage(resource: .menuBarBanked)
+            }
+        }
     }
 
     static func image(window: QuotaWindow?, period: Period, now: Date) -> NSImage {
         let percentage = window.map { "\($0.remainingPercent)%" } ?? "—%"
         let countdown = countdown(until: window?.resetsAt, period: period, now: now)
-        let image = badge(topText: percentage, bottomText: countdown, symbol: period.symbol,
+        let image = badge(topText: percentage, bottomText: countdown,
+                          icon: period == .weekly ? .weekly : .fiveHour,
                           urgency: period == .weekly ? weeklyUrgency(window: window, now: now)
                               : fiveHourUrgency(window: window, now: now))
         image.accessibilityDescription = window.map {
@@ -120,7 +133,7 @@ enum QuotaBadge {
         let image = badge(
             topText: percentage,
             bottomText: countdown(until: next, period: .weekly, now: now),
-            symbol: "gauge.medium",
+            icon: .combined,
             urgency: combinedUrgency(window: window, credits: credits, now: now)
         )
         let quota = window.map { "Weekly quota: \($0.remainingPercent)% remaining." } ?? "Weekly quota unavailable."
@@ -151,14 +164,14 @@ enum QuotaBadge {
             bottom = "—"
             description = "Banked reset expiration unavailable"
         }
-        let image = badge(topText: top, bottomText: bottom, symbol: "hourglass",
+        let image = badge(topText: top, bottomText: bottom, icon: .banked,
                           urgency: expirationUrgency(until: next, now: now))
         image.accessibilityDescription = description
         return image
     }
 
     /// Normal badges use templates; urgent badges color both values together.
-    private static func badge(topText: String, bottomText: String, symbol: String,
+    private static func badge(topText: String, bottomText: String, icon: Icon,
                               urgency: Urgency? = nil) -> NSImage {
         let hasColor = urgency != nil
         let font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
@@ -168,15 +181,25 @@ enum QuotaBadge {
         let top = NSAttributedString(string: topText, attributes: attributes)
         let bottom = NSAttributedString(string: bottomText, attributes: attributes)
         let textWidth = ceil(max(top.size().width, bottom.size().width))
-        let size = NSSize(width: 19 + textWidth, height: 22)
+        // The SVGs include internal padding; a larger canvas gives the glyphs
+        // a readable weight beside the two lines of quota values.
+        let iconSize: CGFloat = 18
+        let textOriginX = iconSize + 5
+        let size = NSSize(width: textOriginX + textWidth, height: 22)
+        let sourceIcon = icon.image
+        // Tint the vector artwork separately so warnings color only the values.
+        let neutralIcon = NSImage(size: sourceIcon.size, flipped: false) { bounds in
+            sourceIcon.draw(in: bounds)
+            (hasColor ? NSColor.labelColor : .black).setFill()
+            bounds.fill(using: .sourceAtop)
+            return true
+        }
+        if hasColor { neutralIcon.cacheMode = .never }
         let image = NSImage(size: size, flipped: false) { _ in
-            var icon = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-            if hasColor {
-                icon = icon?.withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [.labelColor]))
-            }
-            icon?.draw(in: NSRect(x: 0, y: 4, width: 14, height: 14))
-            top.draw(at: NSPoint(x: 19 + (textWidth - top.size().width) / 2, y: 10))
-            bottom.draw(at: NSPoint(x: 19 + (textWidth - bottom.size().width) / 2, y: 0))
+            neutralIcon.draw(in: NSRect(x: 0, y: (size.height - iconSize) / 2,
+                                       width: iconSize, height: iconSize))
+            top.draw(at: NSPoint(x: textOriginX + (textWidth - top.size().width) / 2, y: 10))
+            bottom.draw(at: NSPoint(x: textOriginX + (textWidth - bottom.size().width) / 2, y: 0))
             return true
         }
         image.isTemplate = !hasColor
