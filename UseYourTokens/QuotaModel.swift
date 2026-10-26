@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import CryptoKit
 
 @Observable
 @MainActor
@@ -22,6 +23,7 @@ final class QuotaModel {
     private(set) var resetCredits: ResetCredits?
     private(set) var updatedAt: Date?
     private(set) var errorMessage: String?
+    private(set) var refillEvents: [QuotaRefillTracker.Event] = []
     // Render once per quota update or countdown tick; status items reuse these images.
     private(set) var weeklyMenuBarImage = QuotaBadge.image(window: nil, period: .weekly, now: .now)
     private(set) var fiveHourMenuBarImage = QuotaBadge.image(window: nil, period: .fiveHour, now: .now)
@@ -39,6 +41,8 @@ final class QuotaModel {
     @ObservationIgnored private var accountTask: Task<Void, Never>?
     @ObservationIgnored private var polling: Task<Void, Never>?
     @ObservationIgnored private var loginTimeout: Task<Void, Never>?
+    @ObservationIgnored private let refillStore = QuotaRefillStore()
+    @ObservationIgnored private var confirmationTask: Task<Void, Never>?
 
     var isConnecting: Bool { connection == .connecting }
     var isConnected: Bool { connection == .connected }
@@ -177,6 +181,7 @@ final class QuotaModel {
         performAccountOperation {
             _ = try await self.session.request("account/logout")
             try Task.checkCancellation()
+            self.refillStore.clear()
             self.clearAccount()
         }
     }
@@ -212,7 +217,36 @@ final class QuotaModel {
         windows = QuotaWindow.parse(quota)
         resetCredits = ResetCredits.parse(quota)
         updatedAt = .now
+        // Include the credential slot, account/workspace ID when available,
+        // email, and plan so unrelated accounts or plan changes never compare.
+        // Persist only their fingerprint alongside quota/credit metadata.
+        if let email = account["email"] as? String, !email.isEmpty {
+            let identity = [
+                UserDefaults.standard.string(forKey: "authenticationStoreGeneration") ?? "",
+                account["id"] as? String ?? "", email,
+                account["planType"] as? String ?? ""
+            ]
+            let data = try JSONEncoder().encode(identity)
+            let fingerprint = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            refillStore.observe(.init(account: fingerprint, date: updatedAt!, windows: windows, credits: resetCredits))
+            refillEvents = refillStore.tracker.events
+            if refillStore.tracker.needsConfirmation { scheduleQuotaConfirmation() }
+        } else {
+            refillStore.clear()
+            refillEvents = []
+        }
         updateMenuBarImages()
+    }
+
+    private func scheduleQuotaConfirmation() {
+        guard confirmationTask == nil else { return }
+        confirmationTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(QuotaRefillTracker.confirmationDelay)) }
+            catch { return }
+            guard let self else { return }
+            self.confirmationTask = nil
+            self.refresh()
+        }
     }
 
     private func startPolling() {
@@ -244,7 +278,12 @@ final class QuotaModel {
             }
         case "account/rateLimits/updated":
             guard isSignedIn else { return }
-            windows = QuotaWindow.parse(params)
+            let incoming = QuotaWindow.parse(params)
+            let usageDropped = incoming.contains { window in
+                windows.contains { $0.id == window.id && $0.usedPercent - window.usedPercent >= 10 }
+            }
+            let oldCredits = resetCredits
+            if !incoming.isEmpty { windows = incoming }
             // Some notifications update only the quota windows. Keep the last
             // reset summary unless a replacement (including null) is supplied.
             if params.keys.contains("rateLimitResetCredits") {
@@ -252,6 +291,13 @@ final class QuotaModel {
             }
             updatedAt = .now
             updateMenuBarImages()
+            // A notification may contain quota without the corresponding
+            // redeemed-credit balance. Classify only a subsequent full read.
+            let bankChanged = oldCredits?.availableCount != resetCredits?.availableCount ||
+                Set(oldCredits?.credits.map(\.id) ?? []) != Set(resetCredits?.credits.map(\.id) ?? [])
+            // Ordinary usage notifications must not turn the user's selected
+            // polling interval into a continuous 15-second refresh loop.
+            if usageDropped || bankChanged { scheduleQuotaConfirmation() }
         case "account/updated":
             if params["authMode"] is NSNull, !isSigningIn { clearAccount() }
         default: break
@@ -271,6 +317,9 @@ final class QuotaModel {
         windows = []
         resetCredits = nil
         updatedAt = nil
+        refillEvents = []
+        confirmationTask?.cancel()
+        confirmationTask = nil
         updateMenuBarImages()
     }
 
@@ -313,6 +362,8 @@ final class QuotaModel {
         accountTask?.cancel()
         polling?.cancel()
         loginTimeout?.cancel()
+        confirmationTask?.cancel()
+        confirmationTask = nil
         accountOperationID = nil
     }
 

@@ -24,7 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDel
             ProcessInfo.processInfo.arguments.contains("--check-saved-sign-in") ||
             ProcessInfo.processInfo.arguments.contains("--credential-self-test") ||
             ProcessInfo.processInfo.arguments.contains("--check-model-state") ||
-            ProcessInfo.processInfo.arguments.contains("--check-menu-bar-settings") {
+            ProcessInfo.processInfo.arguments.contains("--check-menu-bar-settings") ||
+            ProcessInfo.processInfo.arguments.contains("--check-quota-refills") {
             Task { await HelperSmokeCheck.run() }
             return
         }
@@ -34,7 +35,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDel
             self?.showSettings()
         }
         model.connect()
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(refreshAfterWake), name: NSWorkspace.didWakeNotification, object: nil
+        )
     }
+
+    @objc private func refreshAfterWake() { model.refresh() }
 
     @objc func showSettings() {
         if settingsWindow == nil {

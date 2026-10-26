@@ -1,11 +1,12 @@
 import Foundation
 
-struct QuotaWindow: Identifiable {
+struct QuotaWindow: Identifiable, Codable {
     let id: String
     let title: String
     let usedPercent: Double
     let resetsAt: Date?
     let windowDurationMins: Int?
+    var planType: String? = nil
 
     var remainingPercent: Int { Int((100 - usedPercent).rounded(.down)) }
 
@@ -37,7 +38,8 @@ struct QuotaWindow: Identifiable {
                 let reset = (window["resetsAt"] as? Double).map(Date.init(timeIntervalSince1970:))
                 return QuotaWindow(
                     id: "\(bucketID).\(key)", title: prefix + duration,
-                    usedPercent: used, resetsAt: reset, windowDurationMins: minutes
+                    usedPercent: used, resetsAt: reset, windowDurationMins: minutes,
+                    planType: bucket["planType"] as? String
                 )
             }
         }

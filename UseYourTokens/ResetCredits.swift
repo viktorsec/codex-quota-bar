@@ -1,7 +1,7 @@
 import Foundation
 
-struct ResetCredits {
-    struct Credit: Identifiable {
+struct ResetCredits: Codable {
+    struct Credit: Identifiable, Codable {
         let id: String
         let expiresAt: Date?
     }

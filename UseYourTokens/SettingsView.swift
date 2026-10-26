@@ -22,7 +22,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Menu Bar")
                     .fontWeight(.semibold)
-                Text("Choose which items appear in your menu bar. Previews are enlarged by 50%.")
+                Text("Choose which items appear in your menu bar.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }

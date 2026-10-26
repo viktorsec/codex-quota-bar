@@ -3,12 +3,57 @@ import SwiftUI
 struct SecretWindowView: View {
     let model: QuotaModel
 
+    private var globalResetCandidates: [QuotaRefillTracker.Event] {
+        model.refillEvents.filter { $0.cause == .unexpected }
+    }
+
+    private var unknownCauseRefills: [QuotaRefillTracker.Event] {
+        model.refillEvents.filter { $0.cause == .unknown }
+    }
+
     var body: some View {
-        Group {
+        Form {
             if let values = model.simulation {
                 SimulationControls(values: values)
             }
+            Section {
+                if globalResetCandidates.isEmpty {
+                    Text("No recent global reset candidates detected")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(globalResetCandidates) { event in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(event.message)
+                        Text(event.date.formatted(date: .abbreviated, time: .shortened))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Recent global resets")
+            } footer: {
+                Text("Quota refilled early while complete banked-reset data stayed unchanged, suggesting an OpenAI reset.")
+            }
+            Section {
+                if unknownCauseRefills.isEmpty {
+                    Text("No recent unknown-cause refills detected")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(unknownCauseRefills) { event in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(event.message)
+                        Text(event.date.formatted(date: .abbreviated, time: .shortened))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Recent unknown-cause refills")
+            } footer: {
+                Text("Quota refilled early, but we couldn’t rule out a user spending a banked reset—for example, reset details were missing, a credit expired or was granted around the same time, or the app was offline too long.")
+            }
         }
+        .formStyle(.grouped)
         .frame(width: 500, height: 640)
     }
 }
@@ -17,7 +62,7 @@ private struct SimulationControls: View {
     @Bindable var values: QuotaSimulation
 
     var body: some View {
-        Form {
+        Group {
             Section("Weekly quota") {
                 percentage("Remaining", value: $values.weeklyRemainingPercent)
                 CountdownSliders(title: "Resets in", date: $values.weeklyResetsAt, units: .daysHours, maximum: 7)
@@ -50,7 +95,6 @@ private struct SimulationControls: View {
                 Text("Banked resets: \(values.bankedResets.count)")
             }
         }
-        .formStyle(.grouped)
     }
 
     private func percentage(_ title: String, value: Binding<Double>) -> some View {
