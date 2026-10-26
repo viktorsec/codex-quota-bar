@@ -5,6 +5,7 @@ import CryptoKit
 @Observable
 @MainActor
 final class QuotaModel {
+    let notifications: QuotaNotifications
     enum ConnectionState { case disconnected, connecting, connected }
     enum AuthenticationState {
         case signedOut
@@ -73,7 +74,9 @@ final class QuotaModel {
     }
 
     init(preferences: MenuBarPreferences? = nil) {
-        self.preferences = preferences ?? MenuBarPreferences()
+        let preferences = preferences ?? MenuBarPreferences()
+        self.preferences = preferences
+        notifications = QuotaNotifications(preferences: preferences)
         session.onNotification = { [weak self] method, params in
             self?.receive(method, params: params)
         }
@@ -220,6 +223,7 @@ final class QuotaModel {
         // Include the credential slot, account/workspace ID when available,
         // email, and plan so unrelated accounts or plan changes never compare.
         // Persist only their fingerprint alongside quota/credit metadata.
+        var newRefillEvents: [QuotaRefillTracker.Event] = []
         if let email = account["email"] as? String, !email.isEmpty {
             let identity = [
                 UserDefaults.standard.string(forKey: "authenticationStoreGeneration") ?? "",
@@ -228,14 +232,17 @@ final class QuotaModel {
             ]
             let data = try JSONEncoder().encode(identity)
             let fingerprint = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            let previousIDs = Set(refillStore.tracker.events.map(\.id))
             refillStore.observe(.init(account: fingerprint, date: updatedAt!, windows: windows, credits: resetCredits))
             refillEvents = refillStore.tracker.events
+            newRefillEvents = refillEvents.filter { !previousIDs.contains($0.id) }
             if refillStore.tracker.needsConfirmation { scheduleQuotaConfirmation() }
         } else {
             refillStore.clear()
             refillEvents = []
         }
         updateMenuBarImages()
+        await notifications.notifyGlobalResets(newRefillEvents)
     }
 
     private func scheduleQuotaConfirmation() {

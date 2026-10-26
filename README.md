@@ -68,6 +68,9 @@ shuts down the helper. It prints only pass/fail messages.
 
 Additional Debug launch arguments provide regression checks:
 
+- `--check-notifications`: checks notification preferences, permission handling,
+  reset filtering, message content, and test delivery using a fake notification
+  client, without requesting system permission or sending real notifications.
 - `--credential-self-test`: creates disposable, randomly named test entries;
   checks reuse, value-only updates, a changed helper identity, and denied access
   without UI; then deletes only those test entries.

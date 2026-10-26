@@ -36,15 +36,18 @@ final class MenuBarPreferences {
     private(set) var enabled: Set<MenuBarPanel>
     private(set) var refreshIntervalMinutes: Int
     private(set) var style: MenuBarStyle
+    private(set) var notifyAboutGlobalResets: Bool
     @ObservationIgnored private let defaults: UserDefaults
     private static let key = "enabledMenuBarPanels"
     private static let refreshKey = "refreshIntervalMinutes"
     private static let styleKey = "menuBarStyle"
+    private static let notificationsKey = "notifyAboutGlobalResets"
     static let refreshIntervals = [1, 2, 5, 10, 15, 30, 45, 60]
     private static let defaultPanels: Set<MenuBarPanel> = [.combined, .fiveHour]
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        notifyAboutGlobalResets = defaults.bool(forKey: Self.notificationsKey)
         style = defaults.string(forKey: Self.styleKey).flatMap(MenuBarStyle.init(rawValue:)) ?? .fullColor
         let savedInterval = defaults.object(forKey: Self.refreshKey) as? Int ?? 5
         refreshIntervalMinutes = Self.clampedInterval(savedInterval)
@@ -59,6 +62,11 @@ final class MenuBarPreferences {
     func setStyle(_ value: MenuBarStyle) {
         style = value
         defaults.set(value.rawValue, forKey: Self.styleKey)
+    }
+
+    func setNotifyAboutGlobalResets(_ value: Bool) {
+        notifyAboutGlobalResets = value
+        defaults.set(value, forKey: Self.notificationsKey)
     }
 
     func setRefreshIntervalMinutes(_ value: Int) {

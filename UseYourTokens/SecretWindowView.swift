@@ -17,6 +17,11 @@ struct SecretWindowView: View {
                 SimulationControls(values: values)
             }
             Section {
+                if let message = model.notifications.message {
+                    Text(message)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
                 if globalResetCandidates.isEmpty {
                     Text("No recent global reset candidates detected")
                         .foregroundStyle(.secondary)
@@ -30,7 +35,14 @@ struct SecretWindowView: View {
                     }
                 }
             } header: {
-                Text("Recent global resets")
+                HStack {
+                    Text("Recent global resets")
+                    Spacer()
+                    Button("Send test notification") {
+                        Task { await model.notifications.sendTest() }
+                    }
+                    .disabled(model.notifications.isSendingTest || model.notifications.isRequestingPermission)
+                }
             } footer: {
                 Text("Quota refilled early while complete banked-reset data stayed unchanged, suggesting an OpenAI reset.")
             }

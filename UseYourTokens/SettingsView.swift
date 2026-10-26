@@ -9,12 +9,17 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 24) {
                 menuBarSection
                 styleSection
+                notificationsSection
                 refreshSection
             }
             .padding(20)
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .frame(width: 600, height: 700)
+        .task { await model.notifications.refreshPermissionStatus() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { await model.notifications.refreshPermissionStatus() }
+        }
     }
 
     private var menuBarSection: some View {
@@ -95,6 +100,78 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 10)
         }
+    }
+
+    private var notificationsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Notifications")
+                .fontWeight(.semibold)
+                .padding(.horizontal, 10)
+            HStack {
+                Text("Notify about global resets")
+                Spacer()
+                Toggle("Notify about global resets", isOn: Binding(
+                    get: { preferences.notifyAboutGlobalResets },
+                    set: { enabled in Task { await model.notifications.setEnabled(enabled) } }
+                ))
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .disabled(model.notifications.isRequestingPermission || model.notifications.isSendingTest)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(14)
+            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
+            if model.notifications.showsPermissionGuidance {
+                if model.notifications.needsSystemSettings {
+                    Button(action: model.notifications.openNotificationSettings) {
+                        permissionGuidanceCard
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open notification settings for Use Your Tokens")
+                } else {
+                    permissionGuidanceCard
+                }
+            }
+            if let message = model.notifications.message {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+            }
+        }
+    }
+
+    private var permissionGuidanceCard: some View {
+        let needsSettings = model.notifications.needsSystemSettings
+        let color: Color = needsSettings ? .orange : .blue
+        return HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "bell.badge.fill")
+                .font(.title3)
+                .foregroundStyle(color)
+                .frame(width: 32, height: 32)
+                .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                .accessibilityHidden(true)
+            Text(needsSettings
+                 ? "Please allow notifications in the system settings"
+                 : "Please allow notifications in the top right corner of your screen")
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+            if needsSettings {
+                Image(systemName: "arrow.up.right")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(color)
+                    .frame(height: 32)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(16)
+        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(color.opacity(0.45), lineWidth: 1)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var refreshSection: some View {

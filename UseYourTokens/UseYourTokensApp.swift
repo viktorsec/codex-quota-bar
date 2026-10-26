@@ -18,6 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDel
         withExtendedLifetime(delegate) { app.run() }
     }
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // Install the notification delegate before launch finishes, without requesting permission.
+        _ = model.notifications
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--smoke-test") ||
@@ -25,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDel
             ProcessInfo.processInfo.arguments.contains("--credential-self-test") ||
             ProcessInfo.processInfo.arguments.contains("--check-model-state") ||
             ProcessInfo.processInfo.arguments.contains("--check-menu-bar-settings") ||
+            ProcessInfo.processInfo.arguments.contains("--check-notifications") ||
             ProcessInfo.processInfo.arguments.contains("--check-quota-refills") {
             Task { await HelperSmokeCheck.run() }
             return

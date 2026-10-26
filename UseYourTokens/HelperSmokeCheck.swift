@@ -10,6 +10,11 @@ enum HelperSmokeCheck {
     static func run() async {
         let session = AuthenticationSession()
         do {
+            if ProcessInfo.processInfo.arguments.contains("--check-notifications") {
+                try await QuotaNotificationCheck.run()
+                fflush(stdout)
+                exit(0)
+            }
             if ProcessInfo.processInfo.arguments.contains("--check-quota-refills") {
                 try QuotaRefillCheck.run()
                 fflush(stdout)
