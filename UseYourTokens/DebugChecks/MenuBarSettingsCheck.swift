@@ -60,6 +60,22 @@ enum MenuBarSettingsCheck {
         print("PASS: native status-item hide/show preserves the saved position")
 
         let now = Date(timeIntervalSince1970: 1_000)
+        let countdownCases: [(TimeInterval, String)] = [
+            (3 * 86_400, "3d"), (3 * 86_400 - 1, "3d"),
+            (2 * 86_400 + 1, "3d"), (2 * 86_400, "48h"), (2 * 86_400 - 1, "48h"),
+            (3 * 3_600, "3h"), (3 * 3_600 - 1, "3h"),
+            (2 * 3_600 + 1, "3h"), (2 * 3_600, "120m"), (2 * 3_600 - 1, "120m"),
+            (90 * 60, "90m"), (61, "2m"), (60, "1m"), (1, "1m"), (0, "Now"), (-1, "Now")
+        ]
+        for (seconds, expected) in countdownCases {
+            try require(QuotaBadge.countdown(until: now.addingTimeInterval(seconds), period: .weekly, now: now) == expected,
+                        "Rounded countdown at \(seconds) seconds should be \(expected)")
+        }
+        try require(QuotaBadge.countdown(until: nil, period: .weekly, now: now) == "—", "Missing weekly deadline")
+        try require(QuotaBadge.countdown(until: now.addingTimeInterval(90 * 60), period: .fiveHour, now: now) == "01:30",
+                    "5-hour countdown keeps hours and minutes")
+        print("PASS: countdowns round up and switch units at exactly 48 hours and 120 minutes")
+
         let credits = ResetCredits(availableCount: 3, credits: [
             .init(id: "expired", expiresAt: now.addingTimeInterval(-1)),
             .init(id: "later", expiresAt: now.addingTimeInterval(3_600)),

@@ -109,8 +109,8 @@ enum QuotaBadge {
             return String(format: "%02d:%02d", minutes / 60, minutes % 60)
         }
         if seconds <= 0 { return "Now" }
-        if seconds >= 86_400 { return "\(Int(seconds / 86_400))d" }
-        if seconds >= 3_600 { return "\(Int(seconds / 3_600))h" }
+        if seconds > 2 * 86_400 { return "\(Int(ceil(seconds / 86_400)))d" }
+        if seconds > 2 * 3_600 { return "\(Int(ceil(seconds / 3_600)))h" }
         return "\(Int(ceil(seconds / 60)))m"
     }
 

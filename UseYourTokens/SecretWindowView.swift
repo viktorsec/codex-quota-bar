@@ -133,7 +133,7 @@ private struct CountdownSliders: View {
         var majorTitle: String { self == .daysHours ? "Days" : "Hours" }
         var minorTitle: String { self == .daysHours ? "Hours" : "Minutes" }
         var minorPerMajor: Int { self == .daysHours ? 24 : 60 }
-        var secondsPerMinor: Double { self == .daysHours ? 3_600 : 60 }
+        var minutesPerMinor: Int { self == .daysHours ? 60 : 1 }
     }
 
     let title: String
@@ -144,28 +144,39 @@ private struct CountdownSliders: View {
     @State private var reference = Date.now
 
     private var total: Int {
-        max(0, Int((date.timeIntervalSince(reference) / units.secondsPerMinor).rounded()))
+        max(0, Int((date.timeIntervalSince(reference) / 60).rounded()))
     }
+
+    private var major: Int { min(maximum, total / (units.minorPerMajor * units.minutesPerMinor)) }
+    private var minor: Int { total / units.minutesPerMinor % units.minorPerMajor }
+    private var minutes: Int { total % units.minutesPerMinor }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
             HStack(spacing: 20) {
                 component(units.majorTitle, value: Binding(
-                    get: { Double(min(maximum, total / units.minorPerMajor)) },
-                    set: { update(major: Int($0), minor: total % units.minorPerMajor) }
+                    get: { Double(major) },
+                    set: { update(major: Int($0), minor: minor, minutes: minutes) }
                 ), maximum: maximum)
                 component(units.minorTitle, value: Binding(
-                    get: { Double(total % units.minorPerMajor) },
-                    set: { update(major: min(maximum, total / units.minorPerMajor), minor: Int($0)) }
+                    get: { Double(minor) },
+                    set: { update(major: major, minor: Int($0), minutes: minutes) }
                 ), maximum: units.minorPerMajor - 1)
+                if units == .daysHours {
+                    component("Minutes", value: Binding(
+                        get: { Double(minutes) },
+                        set: { update(major: major, minor: minor, minutes: Int($0)) }
+                    ), maximum: 59)
+                }
             }
         }
         .padding(.vertical, 4)
     }
 
-    private func update(major: Int, minor: Int) {
-        date = reference.addingTimeInterval(Double(major * units.minorPerMajor + minor) * units.secondsPerMinor)
+    private func update(major: Int, minor: Int, minutes: Int) {
+        let totalMinutes = (major * units.minorPerMajor + minor) * units.minutesPerMinor + minutes
+        date = reference.addingTimeInterval(Double(totalMinutes) * 60)
     }
 
     private func component(_ title: String, value: Binding<Double>, maximum: Int) -> some View {
